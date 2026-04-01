@@ -7,7 +7,7 @@ authors = [
     {name = "Charles Pletcher", email = "charles.pletcher@gmail.com"}
 ]
 dependencies = ["lxml>=6.0.2", "lxml-stubs>=0.5.1"]
-requires-python = ">=3.8, <=3.12"
+requires-python = ">=3.12"
 readme = "README.md"
 license = {text = "MIT"}
 
