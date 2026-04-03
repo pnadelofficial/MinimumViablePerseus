@@ -32,7 +32,12 @@ The center column is the reader proper. It has forward and backward buttons at t
 Non-English texts have been tokenized, with links to word-study tools.
 
 
+*** Reading environment requirements for P6 (static version)
 
+- Search
+- Translations
+- Vocabulary tool
+- Cross-refs
 
 
 ** Code Base Analysis
