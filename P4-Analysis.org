@@ -37,7 +37,7 @@ Non-English texts have been tokenized, with links to word-study tools.
 - Search
 - Translations
 - Vocabulary tool
-- Cross-refs
+- Cross-refs and other references
 
 
 ** Code Base Analysis
