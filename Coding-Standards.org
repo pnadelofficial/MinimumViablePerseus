@@ -1,0 +1,10 @@
+* Coding Standards
+The Perseus6 project follows minimal computing standards:
+
+1. The system must be /stable/: it shold not rely execessively on external libraries or frameworks.
+
+2. The system must be /sustainable/: it should have a clean architecture based on modern software design principles.
+
+3. The system must be /maintainable/: Experienced developers should be able to understand it readily; it should be properly documented; it should have good test coverage.
+
+We will elaborate detailed practices shortly.
