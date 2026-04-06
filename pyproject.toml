@@ -1,14 +1,14 @@
 [project]
-name = "python-project-template"
+name = "Perseus_6"
 version = "0.1.0"
-description = "Python project template"
+description = "Implementation of Perseus, version 6"
 authors = [
     {name = "Cliff Wulfman", email = "cwulfman@princeton.edu"},
     {name = "Charles Pletcher", email = "charles.pletcher@gmail.com"}
 ]
-dependencies = ["lxml>=6.0.2", "lxml-stubs>=0.5.1"]
+dependencies = ["lxml>=6.0.2", "lxml-stubs>=0.5.1", "spacy[apple]>=3.8.2"]
 requires-python = ">=3.12"
-readme = "README.md"
+readme = "README.org"
 license = {text = "MIT"}
 
 [build-system]
