@@ -28,7 +28,7 @@ Perseus6 includes a simple catalog for finding texts and translations using link
 
 
 *** Reading
-Perseus6 does not have a /reading environment/ as prior versions did; its compiled HTML pages may be viewed and navigated using a basic web browser.  Full-text search is not included in the Perseus6 reader. Instead, it provides a website that serves hypertextually linked HTML files via simple HTTP.
+Perseus6 does not have a /reading environment/ /per se/ as prior versions did; its compiled HTML pages may be viewed and navigated using a basic web browser, but there are no features that would rely on communication with a running backend process or database.  Full-text search is not included in the Perseus6 reader. Instead, it provides a website that serves hypertextually linked HTML files via simple HTTP.
 
 
 ** What this Repository Contains
