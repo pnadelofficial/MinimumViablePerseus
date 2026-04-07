@@ -7,7 +7,7 @@ The Perseus Digital Library is a large collection of texts encoded in TEI XML. T
 ** Minimal Computing
 Perseus6 follows the principles of /minimal computing/, which advocate lightweight web design and reduced complexity.
 
-Perseus6 relies on external services to supplement its minimal capabilities with full-text searching, metadata faceting, and on-demand linguistic processing and analysis, all of which require web-accessible database systems that Perseus can no longer provide.  Instead, Perseus6 is /data forward/:  Perseus provides the data and the software that allow users with computation resources to create services.
+In that vein, Perseus6 expects external services to supplement its minimal capabilities with full-text searching, metadata faceting, and on-demand linguistic processing and analysis, all of which require web-accessible database systems that Perseus can no longer provide.  Instead, Perseus6 is /data forward/:  Perseus provides the data and the software that allow users with computation resources to create services.
 
 ** Components
 Perseus6 is a software system for processing, discovering, searching, and reading digital texts.
