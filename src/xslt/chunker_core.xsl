@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  tei-to-html-base.xsl
+  chunker_core.xsl
   Base stylesheet for converting TEI content to HTML, chunk by chunk.
 
   All element templates operate in "chunk" mode and receive two tunnel
