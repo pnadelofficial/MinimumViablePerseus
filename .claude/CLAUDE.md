@@ -25,24 +25,26 @@ requirements into the HTML output.
 
 Read all files in `.claude/guidelines/`.
 
-## Before working on XSLT or TEI processing
-
-Read `.claude/CHUNKING_DESIGN.md`. It covers the milestone chunking algorithm,
-the XSLT import architecture, CTS URN annotation strategy, and deferred work
-(especially the Sophocles citation hierarchy, which awaits philologist input).
-
 ## Repository layout
 
 ```
-src/            Python packages
-xslt/           XSLT stylesheets
-  tei-to-html-base.xsl   importable base — extend via xsl:import
-  generate_chunks.xsl    batch chunk generator
-tests/          test suite and fixtures
-.claude/        context documents for AI-assisted development
+src/
+  python/         Python build pipeline and compiler framework
+    compilers/    TEICompiler abstract base class and HTMLCompiler
+    build_site.py
+    main.py
+  perseus6/       XML processing utilities; drama XSLT stub
+  xslt/           XSLT stylesheets
+    chunker_core.xsl     importable base — extend via xsl:import
+    generate_chunks.xsl  batch chunk generator
+data/             TEI source texts (git submodule: canonical-greekLit)
+schemas/          TEI ODD schemas (perseus_base.odd, tei_bare.odd)
+tests/            test suite and fixtures
+.claude/          context documents for AI-assisted development
 ```
 
 ## Further reading
 
-The project wiki contains standards, workflows, and best practices for
-contributors.
+The project wiki is available at `wiki/` (git submodule).  It contains
+standards, workflows, best practices, and design documents including the
+chunking and CTS URN architecture.

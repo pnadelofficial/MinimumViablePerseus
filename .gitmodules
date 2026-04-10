@@ -4,3 +4,6 @@
 [submodule "data/canonical-greekLit"]
 	path = data/canonical-greekLit
 	url = https://github.com/PerseusDL/canonical-greekLit.git
+[submodule "wiki"]
+	path = wiki
+	url = git@github.com:PerseusDLCode/PerseusP6.wiki.git

@@ -28,7 +28,7 @@
   version="3.0"
   exclude-result-prefixes="tei xs local">
 
-  <xsl:import href="tei-to-html-base.xsl"/>
+  <xsl:import href="chunker_core.xsl"/>
 
   <xsl:output method="html" html-version="5" indent="yes"/>
 
