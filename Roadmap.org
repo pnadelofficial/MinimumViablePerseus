@@ -1,0 +1,206 @@
+* Perseus6 MVP — Development Roadmap
+
+#+date: 2026-04-11
+#+author: Clifford Wulfman
+
+This document proposes a development roadmap for Minimum Viable Perseus
+(MVP), the first phase of Perseus6.  It emerges from a planning discussion
+and is intended as a starting point for group review and comment.
+
+** Background and Design Philosophy
+
+Perseus6 replaces Perseus 4 (the Hopper), a Java-based web application that
+has been unmaintained for years.  The replacement strategy is
+deliberately conservative: MVP reproduces the Hopper's critical
+functionality as a /static site/ — a collection of pre-compiled HTML pages
+and supporting data files that can be served from any web server without a
+database or application backend.
+
+Two design principles have emerged from the planning work that deserve to
+be stated explicitly, as they have significant architectural consequences.
+
+*** Minimal computing
+
+The system must be stable, sustainable, and maintainable.  It should not
+rely excessively on external libraries or frameworks.  It should have a
+clean architecture, good test coverage, and documentation sufficient for
+future developers to understand and extend it.  The implementation
+languages are Python, XSLT 3.0, and XQuery.
+
+*** Document-oriented, not citation-oriented
+
+The Hopper's successor, the Scaife Viewer, and the Beyond Translation
+prototype are organized around the Canonical Text Services (CTS) protocol:
+texts are modeled as citation trees, and the server delivers JSON chunks
+keyed by CTS URN.  This architecture has a significant limitation: CTS
+addresses canonical text fragments but has no model for the /paratext/ that
+surrounds them — headers, notes, figures, editorial apparatus — all of
+which a reading environment needs to render.
+
+Perseus6 takes a different approach.  TEI source documents are treated as
+documents first.  CTS URNs are /annotations/ on the output, not the
+organizing principle of the processing pipeline.  This produces richer,
+more faithful renderings and avoids the conceptual mismatch between a
+citation-oriented API and a document-oriented reader.
+
+** Current State
+
+The project has a working implementation of the core chunking pipeline.
+The XSLT stylesheets (=chunker_core.xsl= and =generate_chunks.xsl=) can
+transform a milestone-delimited TEI document into a sequence of HTML
+pages, each annotated with CTS URN data and accompanied by an
+=index.json= manifest.  A Python compiler framework (=TEIProcessor=,
+=Compiler=, =PageCompiler=) provides the orchestration layer.  The
+project has a PDM-managed package structure, a test suite skeleton, and
+a wiki.
+
+The system does not yet have a catalog, a build pipeline, morphological
+tools, dictionary compilers, or word-study pages.
+
+** The Roadmap
+
+The milestones below are sequenced so that each one produces something
+independently deployable.  This is deliberate: given the project's staffing
+constraints, it is important that useful work can be demonstrated and used
+at each stage rather than only at the end.
+
+*** Milestone 1: Corpus and Catalog
+
+/Goal:/ A deployable static website containing the Perseus corpus rendered
+as HTML and a catalog that lets users find and navigate to texts.
+
+*Deliverables:*
+
+- The TEI → HTML compiler, extended to handle the full range of TEI
+  encodings found in the Perseus corpus (Greek collection; Latin
+  collection; English texts).
+- A catalog compiler that generates browse pages: by language, by author,
+  by work.
+- A site build pipeline that takes the TEI corpus as input and produces a
+  self-contained directory tree ready for deployment.
+
+*Notes:*
+
+The chunking pipeline already handles a significant class of TEI
+documents.  The principal remaining work is auditing the corpus for
+encoding variants and extending the XSLT stylesheets (via =xsl:import=)
+to handle them.  The Sophocles hierarchical citation case (nested
+=div[@type='textpart']= elements) is flagged as the most urgent known
+gap; see the Chunking Design document for details.
+
+At this milestone, the rendered texts are readable but the individual
+tokens are not yet linked to morphological or dictionary data.
+
+*** Milestone 2: Dictionaries and Lexica
+
+/Goal:/ The major Perseus reference works (LSJ, Lewis & Short, and others)
+are compiled into two formats: pageable reading texts and collections of
+individual entry-level HTML documents.
+
+*Deliverables:*
+
+- A dictionary compiler that transforms TEI-encoded lexica into pageable
+  HTML reading texts, added to the catalog.
+- The same compiler (or a variant) that decomposes each lexicon into
+  individual entry pages, one per headword, at stable URLs.
+- The entry-level pages are not yet linked from the primary texts; they
+  are compiled here so that the infrastructure exists for Milestone 4.
+
+*Notes:*
+
+Perseus's reference works are themselves TEI documents, so the compiler
+framework developed in Milestone 1 applies directly.  The additional
+requirement is that the dictionary compiler understands the internal
+structure of lexicon entries (=<entry>=, =<sense>=, headwords, etc.) well
+enough to decompose them into individually addressable pages.
+
+*** Milestone 3: Tokenization and Morphology
+
+/Goal:/ A token extractor processes the corpus and produces morphological
+data for all tokens, using Morpheus or an equivalent analyzer.
+
+*Deliverables:*
+
+- A token extractor that processes TEI source documents and produces a
+  token list with position information (surface form + CTS-anchored
+  location).
+- Integration with Morpheus (or a modern equivalent) to produce
+  morphology tables keyed by surface form.
+- The HTML compiler is extended to annotate each token in the rendered
+  pages with a link to its word-study page (to be compiled in Milestone 4).
+
+*Notes:*
+
+Tokenization for morphological purposes is simpler than full linguistic
+tokenization: the primary operation is splitting on whitespace and
+stripping punctuation to recover surface forms.  Sentence segmentation
+and syntactic parsing are out of scope for MVP.
+
+The question of where tokenization belongs in the TEI source deserves
+consideration.  The project's current position is that the archival TEI
+stays clean and human-readable — no =<w/>= markup in the source — and
+that token lists and morphological annotations are /derived artifacts/
+produced by the build pipeline.  This is consistent with the compiler
+model: the TEI source is input; annotated HTML is output.
+
+*** Milestone 4: Word-Study Pages
+
+/Goal:/ Clicking a token in a primary text opens a pre-compiled word-study
+page that presents morphological parses and dictionary definitions.
+
+*Deliverables:*
+
+- A word-study page compiler that joins morphology table data (Milestone 3)
+  with dictionary entry pages (Milestone 2) to produce one static HTML
+  page per surface form (or per lemma, depending on the design decision).
+- Token links in the rendered primary texts (added in Milestone 3) resolve
+  to these pages.
+
+*Notes:*
+
+Word-study pages are the join layer between the two independent
+pipelines developed in Milestones 2 and 3.  They are the feature most
+used by students — the population that constitutes a large share of
+Perseus's user base — and their completion marks the point at which MVP
+is genuinely useful as a learning environment, not only as a reading
+environment.
+
+No JavaScript is required.  A click on a token is a plain HTML link to
+a static page.
+
+*** Beyond Milestone 4
+
+The natural extensions, not yet scoped, include:
+
+- /Translation alignments/ — linking primary text passages to aligned
+  translations, compiled from the alignment data in the Perseus corpus.
+- /Search/ — full-text search over the corpus; likely requires a
+  pre-built index and a lightweight server component, which would be the
+  first departure from the purely static model.
+- /Cross-references and commentary/ — linking scholarly apparatus to
+  primary text passages.
+
+** Open Questions
+
+The following questions are raised for group discussion:
+
+1. *Morphology scope in MVP.* Morphological word-study is one of the
+   Hopper's most-used features, but it also has the most external
+   dependencies (Morpheus or equivalent).  Should it be confirmed as in
+   scope for MVP, or deferred to a later phase?
+
+2. *Corpus scope in Milestone 1.* Should Milestone 1 target the full
+   Perseus corpus, or a well-encoded subset (e.g., Latin texts only, or
+   a single author) as an initial deployment target?
+
+3. *Dictionary scope in Milestone 2.* Which reference works are
+   priorities?  LSJ and Lewis & Short are the obvious candidates for
+   Greek and Latin respectively.
+
+4. *Static search.* Is basic full-text search required for MVP, or is
+   catalog-based navigation sufficient for the first deployment?
+
+5. *Stable URLs.* The URL scheme for all compiled artifacts (chunk pages,
+   entry pages, word-study pages) needs to be agreed upon before
+   Milestone 1 is complete, since later milestones depend on it.  This
+   should probably be addressed as part of Milestone 1 planning.
