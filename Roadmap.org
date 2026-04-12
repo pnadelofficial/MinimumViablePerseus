@@ -7,62 +7,56 @@ This document proposes a development roadmap for Minimum Viable Perseus
 (MVP), the first phase of Perseus6.  It emerges from a planning discussion
 and is intended as a starting point for group review and comment.
 
-** Background and Design Philosophy
+** Aims
 
-Perseus6 replaces Perseus 4 (the Hopper), a Java-based web application that
-has been unmaintained for years.  The replacement strategy is
-deliberately conservative: MVP reproduces the Hopper's critical
-functionality as a /static site/ — a collection of pre-compiled HTML pages
-and supporting data files that can be served from any web server without a
-database or application backend.
+The goal of this project is to produce a reading environment that
+replaces the functionality of P4 (the Hopper) as much as possible with
+a /serverless implementation/ that requires no database or application
+backend.
 
-Two design principles have emerged from the planning work that deserve to
-be stated explicitly, as they have significant architectural consequences.
+** Design Philosophy
 
-*** Minimal computing
+Following the minimal computing philosophy, MVP must be stable,
+sustainable, and maintainable.  It should have a clean architecture,
+good test coverage, and documentation sufficient for future developers
+to understand and extend it.  It should not rely on external libraries
+or frameworks.  It should minimize its use of Javascript.
 
-The system must be stable, sustainable, and maintainable.  It should not
-rely excessively on external libraries or frameworks.  It should have a
-clean architecture, good test coverage, and documentation sufficient for
-future developers to understand and extend it.  The implementation
-languages are Python, XSLT 3.0, and XQuery.
+** Approaches
 
-*** Document-oriented, not citation-oriented
+*** Follow Agile Principles
+Development happens in short iterations (sprints).  Each sprint ends
+with a functioning, deliverable system.
 
-The Hopper's successor, the Scaife Viewer, and the Beyond Translation
-prototype are organized around the Canonical Text Services (CTS) protocol:
-texts are modeled as citation trees, and the server delivers JSON chunks
-keyed by CTS URN.  This architecture has a significant limitation: CTS
-addresses canonical text fragments but has no model for the /paratext/ that
-surrounds them — headers, notes, figures, editorial apparatus — all of
-which a reading environment needs to render.
+*** Use Static-Site Generation
+ MVP will be implemented as a set of compilers that generate HTML
+ pages from TEI-encoded texts. The compilers will be implemented in
+ Python, XSLT, and XQuery.
 
-Perseus6 takes a different approach.  TEI source documents are treated as
-documents first.  CTS URNs are /annotations/ on the output, not the
-organizing principle of the processing pipeline.  This produces richer,
-more faithful renderings and avoids the conceptual mismatch between a
-citation-oriented API and a document-oriented reader.
+*** Be Document-Oriented, not Citation-Oriented
+The Hopper's successors, the Scaife Viewer and the Beyond Translation
+prototype, are organized around the Canonical Text Services (CTS)
+protocol: texts are modeled as citation trees, and the server delivers
+JSON chunks keyed by CTS URN.  For a reading environment, this
+architecture has a significant limitation: CTS addresses canonical
+text fragments but has no model for the /paratext/ that surrounds them
+— headers, notes, figures, editorial apparatus — all of which a
+reading environment needs to render.
 
-** Current State
+MVP takes a different approach: TEI source documents are treated as
+documents first, and CTS URNs are /annotations/ on the output, not the
+organizing principle of the processing pipeline.  This approach
+produces richer, more faithful renderings and avoids the conceptual
+mismatch between a citation-oriented API and a document-oriented
+reader.
 
-The project has a working implementation of the core chunking pipeline.
-The XSLT stylesheets (=chunker_core.xsl= and =generate_chunks.xsl=) can
-transform a milestone-delimited TEI document into a sequence of HTML
-pages, each annotated with CTS URN data and accompanied by an
-=index.json= manifest.  A Python compiler framework (=TEIProcessor=,
-=Compiler=, =PageCompiler=) provides the orchestration layer.  The
-project has a PDM-managed package structure, a test suite skeleton, and
-a wiki.
-
-The system does not yet have a catalog, a build pipeline, morphological
-tools, dictionary compilers, or word-study pages.
 
 ** The Roadmap
 
 The milestones below are sequenced so that each one produces something
 independently deployable.  This is deliberate: given the project's staffing
 constraints, it is important that useful work can be demonstrated and used
-at each stage rather than only at the end.
+at each stage rather than only at the end (Agile).
 
 *** Milestone 1: Corpus and Catalog
 
@@ -178,7 +172,11 @@ The natural extensions, not yet scoped, include:
   pre-built index and a lightweight server component, which would be the
   first departure from the purely static model.
 - /Cross-references and commentary/ — linking scholarly apparatus to
-  primary text passages.
+  primary text passages. This functionality has been central to
+  Perseus's research for many years, and it appears late in the
+  roadmap not because it isn't important but because its
+  implementation is challenging, and putting its implementation
+  earlier risks disrupting the Agile workflow.
 
 ** Open Questions
 
