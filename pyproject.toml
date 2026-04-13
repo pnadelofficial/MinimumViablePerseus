@@ -25,24 +25,24 @@ editable-backend = "path"
 
 
 [tool.pdm.scripts]
-test = "pytest"
-test_verbose = "pytest -v"
-cov = "pytest --cov=mvp --cov-report=html"
+test = "python -m pytest"
+test_verbose = "python -m pytest -v"
+cov = "python -m pytest --cov=src/python --cov-report=html"
 cov_report = {shell = "python -m http.server -d htmlcov"}
-lint = "ruff check"
-typecheck = "python -m mypy src"
+lint = "python -m ruff check"
+typecheck = "python -m mypy src/python"
 
 
 [tool.pytest.ini_options]
 pythonpath = ["src/python"]
-testpaths = ["tests/python"]
+testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
-addopts = "--cov=mvp --cov-report=term-missing"
+addopts = "--cov=src/python --cov-report=term-missing"
 
 [tool.coverage.run]
 source = ["src/python"]
-omit = ["tests/python/*"]
+omit = ["tests/*"]
 
 [tool.coverage.report]
 exclude_lines = [
