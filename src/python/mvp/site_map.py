@@ -17,9 +17,9 @@ class SiteMap:
     output paths from SiteMap rather than constructing them directly.
 
     The URL scheme is:
-        /{language}/{textgroup}/{work}/{version}/    — chunk pages
-        /catalog/{language}.html                    — catalog pages
-        /{language}/{textgroup}/{work}/{version}/index.json  — manifests
+        /{namespace}/{textgroup}/{work}/{version}/    — chunk pages
+        /catalog/{language}.html                     — catalog pages
+        /{namespace}/{textgroup}/{work}/{version}/index.json  — manifests
 
     URN components are mapped as follows:
         urn:cts:{namespace}:{textgroup}.{work}.{version}:{passage}
@@ -68,20 +68,26 @@ class SiteMap:
         urn:cts:greekLit:tlg0011.tlg001.perseus-grc2
         → greekLit/tlg0011/tlg001/perseus-grc2
 
-        Returns a single-segment path for URNs that don't conform to
-        the expected structure.
+        urn:cts:latinLit:phi1017.phi007.perseus-lat2:57
+        → latinLit/phi1017/phi007/perseus-lat2  (passage citation stripped)
+
+        Returns a single-segment fallback path for URNs that don't conform
+        to the expected structure.
         """
-        # Strip 'urn:cts:' prefix and passage citation if present
         bare = urn.removeprefix("urn:cts:")
-        bare = bare.split(":")[0]           # drop passage component
 
-        parts = bare.split(".")
-        if len(parts) >= 3:
-            namespace_and_rest = bare.split(":", 1)
-            if len(namespace_and_rest) == 2:
-                namespace = namespace_and_rest[0]
-                work_parts = namespace_and_rest[1].split(".")
-                return Path(namespace, *work_parts)
+        # Split into [namespace, work_and_maybe_passage].
+        # A well-formed CTS URN has exactly one colon separating the
+        # namespace from the work identifier.  A passage citation, if
+        # present, appears as a further colon-separated component after
+        # the version identifier.
+        parts = bare.split(":", 1)
+        if len(parts) == 2:
+            namespace = parts[0]
+            # Drop passage citation if present, then split dotted work id
+            work = parts[1].split(":")[0]
+            return Path(namespace, *work.split("."))
 
-        # Fallback: use the bare URN as a single directory name
+        # Fallback: use the bare string as a single directory name,
+        # replacing characters that are problematic in filesystem paths.
         return Path(bare.replace(":", "_").replace(".", "_"))
