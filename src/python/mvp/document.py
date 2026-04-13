@@ -1,4 +1,4 @@
-# document.py
+# mvp/document.py
 #
 # TEIDocument: parses and holds a single TEI source file.
 #
@@ -12,7 +12,7 @@ from pathlib import Path
 
 from lxml import etree
 
-from models import TEIMetadata
+from mvp.models import TEIMetadata
 
 TEI_NS = "http://www.tei-c.org/ns/1.0"
 NS = {"tei": TEI_NS}
@@ -119,8 +119,8 @@ class TEIDocument:
         return ""
 
     def _extract_text_type(self, root: etree._Element) -> str:
-        # Heuristic: presence of <l> elements suggests verse;
-        # presence of <sp> suggests drama; otherwise prose.
+        # Heuristic: presence of <sp> suggests drama;
+        # presence of <l> suggests verse; otherwise prose.
         # This is intentionally simple and can be refined.
         text_el = root.find("tei:text", NS)
         if text_el is None:

@@ -1,4 +1,4 @@
-# compilers.py
+# mvp/compilers.py
 #
 # PageCompiler and CatalogCompiler.
 #
@@ -14,9 +14,9 @@ from pathlib import Path
 
 from saxonche import PySaxonProcessor
 
-from document import TEIDocument
-from models import TEIMetadata
-from strategy import ChunkingStrategy
+from mvp.document import TEIDocument
+from mvp.models import TEIMetadata
+from mvp.strategy import ChunkingStrategy
 
 
 @dataclass

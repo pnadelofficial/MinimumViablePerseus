@@ -1,4 +1,4 @@
-# strategy.py
+# mvp/strategy.py
 #
 # ChunkingStrategy and StrategySelector.
 #
@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from document import TEIDocument
+from mvp.document import TEIDocument
 
 TEI_NS = "http://www.tei-c.org/ns/1.0"
 NS = {"tei": TEI_NS}

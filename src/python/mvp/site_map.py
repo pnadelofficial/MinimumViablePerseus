@@ -1,4 +1,4 @@
-# site_map.py
+# mvp/site_map.py
 #
 # SiteMap: owns the output path and URL scheme for all compiled artifacts.
 #
@@ -77,8 +77,6 @@ class SiteMap:
 
         parts = bare.split(".")
         if len(parts) >= 3:
-            # namespace is the first dot-free component before the textgroup
-            # e.g. 'greekLit:tlg0011.tlg001.perseus-grc2'
             namespace_and_rest = bare.split(":", 1)
             if len(namespace_and_rest) == 2:
                 namespace = namespace_and_rest[0]

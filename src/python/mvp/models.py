@@ -1,4 +1,4 @@
-# models.py
+# mvp/models.py
 #
 # Core data objects for the Perseus6 build pipeline.
 #

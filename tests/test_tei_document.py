@@ -15,8 +15,8 @@ from pathlib import Path
 import pytest
 from lxml import etree
 
-from document import TEIDocument
-from models import TEIMetadata
+from mvp.document import TEIDocument
+from mvp.models import TEIMetadata
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -25,10 +25,10 @@ from models import TEIMetadata
 DATA_DIR = Path(__file__).parent / "data"
 
 def make_tei(body: str, header_extras: str = "",
-             text_lang: str = "") -> Path:
-    """Write a minimal TEI document to a temp file and return its path."""
+             text_lang: str = "") -> str:
+    """Return a minimal TEI document as a string."""
     lang_attr = f' xml:lang="{text_lang}"' if text_lang else ""
-    xml = textwrap.dedent(f"""\
+    return textwrap.dedent(f"""\
         <?xml version="1.0" encoding="UTF-8"?>
         <TEI xmlns="http://www.tei-c.org/ns/1.0">
           <teiHeader>
@@ -49,7 +49,6 @@ def make_tei(body: str, header_extras: str = "",
           </text>
         </TEI>
     """)
-    return xml
 
 
 def write_tei(tmp_path: Path, xml: str) -> Path:
@@ -273,10 +272,8 @@ class TestSenecaAgamemnon:
         assert "Seneca" in doc.metadata.author
 
     def test_language(self, doc):
-        # Known issue: this file has no xml:lang on <text>
-        # This test documents current behaviour; fix _extract_language()
-        # to handle this case (e.g. infer from refsDecl namespace or
-        # from langUsage).
+        # Known issue: this file has no xml:lang on <text>.
+        # Permissive assertion documents current behaviour.
         assert doc.metadata.language in ("lat", "")
 
     def test_text_type(self, doc):
@@ -332,7 +329,7 @@ class TestGalenDeVenaeSectione:
         assert doc.metadata.author == ""
 
     def test_language(self, doc):
-        # Known issue: no xml:lang on <text> in this file either
+        # Known issue: no xml:lang on <text> in this file either.
         assert doc.metadata.language in ("grc", "")
 
     def test_text_type(self, doc):

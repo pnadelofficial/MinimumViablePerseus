@@ -1,4 +1,4 @@
-# corpus.py
+# mvp/corpus.py
 #
 # Corpus: discovers and enumerates TEI source documents.
 #
@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from pathlib import Path
 
-from document import TEIDocument
+from mvp.document import TEIDocument
 
 
 class Corpus:

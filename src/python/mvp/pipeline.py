@@ -1,4 +1,4 @@
-# pipeline.py
+# mvp/pipeline.py
 #
 # BuildPipeline: orchestrates the full Milestone 1 build.
 #
@@ -9,11 +9,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from compilers import CatalogCompiler, CompilationError, PageCompiler
-from corpus import Corpus
-from models import TEIMetadata
-from site_map import SiteMap
-from strategy import StrategySelector
+from mvp.compilers import CatalogCompiler, CompilationError, PageCompiler
+from mvp.corpus import Corpus
+from mvp.models import TEIMetadata
+from mvp.site_map import SiteMap
+from mvp.strategy import StrategySelector
 
 
 class BuildPipeline:
@@ -31,9 +31,9 @@ class BuildPipeline:
     over fail-fast for batch builds over large corpora.
 
     Args:
-        corpus:       The TEI source corpus.
-        site_map:     URL/path scheme for compiled artifacts.
-        xslt_root:    Directory containing XSLT stylesheets.
+        corpus:        The TEI source corpus.
+        site_map:      URL/path scheme for compiled artifacts.
+        xslt_root:     Directory containing XSLT stylesheets.
         template_path: Path to the catalog HTML template.
     """
 
