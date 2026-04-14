@@ -10,6 +10,15 @@
 # strategy.  It reads refsDecl as a hint but also inspects the actual
 # document structure, since encoding inconsistencies in the Perseus
 # corpus mean that refsDecl cannot always be trusted.
+#
+# TODO (multiple chunking strategies): StrategySelector.select() currently
+# returns a single strategy — the first match in _STRATEGIES.  Perseus 4
+# supported user-selectable chunking schemes for texts that encode multiple
+# valid chunking axes (e.g. Plato's Alcibiades I has both milestone unit="page"
+# and milestone unit="section").  A future revision should introduce a
+# select_all() method (or replace select()) that returns all applicable
+# strategies for a document.  See Open Question 6 in wiki/Roadmap.org and
+# the deferred items in wiki/Object-Model.org.
 
 from __future__ import annotations
 
@@ -107,9 +116,15 @@ class StrategySelector:
     Per-document overrides are not yet implemented.  When they are,
     a configuration file mapping URNs to strategy names would be
     consulted first.
+
+    TODO (multiple chunking strategies): select() returns the first
+    matching strategy.  For documents with multiple valid chunking axes,
+    a select_all() method should be added.  See module docstring above.
     """
 
     # Strategies tried in order; first match wins.
+    # TODO (multiple chunking strategies): when select_all() is introduced,
+    # this list should be exhaustively searched rather than short-circuited.
     _STRATEGIES: list[ChunkingStrategy] = [
         MilestoneStrategy(unit="card"),
         MilestoneStrategy(unit="section"),

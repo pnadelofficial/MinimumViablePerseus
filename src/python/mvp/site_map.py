@@ -4,6 +4,14 @@
 #
 # No other object constructs output paths.  Everything goes through
 # SiteMap so the URL scheme can be changed in one place.
+#
+# TODO (multiple chunking strategies): chunk_dir() and chunk_path() currently
+# map each URN to a single output directory.  When multiple chunking schemes
+# per document are supported, these methods will need a chunking-scheme
+# parameter so that each (URN, strategy) pair maps to a distinct directory,
+# e.g. greekLit/tlg0059/tlg013/perseus-grc2/by-section/ vs .../by-page/.
+# See Open Question 6 in wiki/Roadmap.org and the deferred items in
+# wiki/Object-Model.org.
 
 from __future__ import annotations
 
@@ -40,6 +48,10 @@ class SiteMap:
         """Return the output directory for chunk pages of a document.
 
         Creates parent directories as needed.
+
+        TODO (multiple chunking strategies): add a scheme parameter
+        (e.g. chunk_dir(urn, scheme='by-section')) when multi-scheme
+        compilation is implemented.
         """
         path = self._root / self._urn_to_path(urn)
         path.mkdir(parents=True, exist_ok=True)

@@ -16,8 +16,9 @@ from mvp.document import TEIDocument
 class Corpus:
     """A collection of TEI source documents under a root directory.
 
-    Discovers all .xml files recursively under root.  Documents are
-    loaded lazily by the documents() iterator.
+    Discovers all .xml files recursively under root, excluding CTS
+    catalog files (__cts__.xml).  Documents are loaded lazily by the
+    documents() iterator.
 
     Args:
         root: Root directory of the corpus (e.g. data/canonical-greekLit).
@@ -38,9 +39,14 @@ class Corpus:
     def documents(self) -> Iterator[TEIDocument]:
         """Yield TEIDocuments for all XML files under the corpus root.
 
+        Skips __cts__.xml catalog files, which describe collection
+        structure rather than containing text to compile.
+
         Skips files that cannot be parsed, logging a warning.
         """
         for xml_path in sorted(self._root.rglob("*.xml")):
+            if xml_path.name == "__cts__.xml":
+                continue
             try:
                 yield TEIDocument.from_path(xml_path)
             except Exception as exc:

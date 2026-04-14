@@ -40,6 +40,16 @@ MINIMAL_TEI = textwrap.dedent("""\
     </TEI>
 """)
 
+# Minimal __cts__.xml content as found in the canonical-greekLit corpus
+MINIMAL_CTS = textwrap.dedent("""\
+    <?xml version="1.0" encoding="UTF-8"?>
+    <ti:TextInventory xmlns:ti="http://chs.harvard.edu/xmlns/cts">
+      <ti:textgroup urn="urn:cts:greekLit:tlg0011">
+        <ti:groupname xml:lang="eng">Sophocles</ti:groupname>
+      </ti:textgroup>
+    </ti:TextInventory>
+""")
+
 
 def make_tei_file(directory: Path, name: str,
                   content: str = MINIMAL_TEI) -> Path:
@@ -122,6 +132,26 @@ class TestCorpusDocuments:
     def test_document_count(self, corpus_root):
         corpus = Corpus(corpus_root)
         assert len(list(corpus.documents())) == 3
+
+    def test_excludes_cts_catalog_files(self, tmp_path):
+        """__cts__.xml catalog files must be excluded from enumeration.
+
+        These files describe collection structure for the CTS protocol
+        and are not TEI text documents.  They appear throughout the
+        canonical-greekLit and canonical-latinLit corpus trees.
+        """
+        make_tei_file(tmp_path, "text.xml")
+        (tmp_path / "__cts__.xml").write_text(MINIMAL_CTS, encoding="utf-8")
+        sub = tmp_path / "tlg0011"
+        sub.mkdir()
+        (sub / "__cts__.xml").write_text(MINIMAL_CTS, encoding="utf-8")
+
+        corpus = Corpus(tmp_path)
+        paths = {d.path for d in corpus.documents()}
+
+        assert tmp_path / "text.xml" in paths
+        assert tmp_path / "__cts__.xml" not in paths
+        assert sub / "__cts__.xml" not in paths
 
     def test_skips_malformed_xml(self, tmp_path):
         """A malformed XML file is skipped; valid files are still yielded."""

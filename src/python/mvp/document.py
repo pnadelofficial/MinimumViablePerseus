@@ -19,17 +19,16 @@ NS = {"tei": TEI_NS}
 
 
 class TEIDocument:
-    """A parsed TEI source document with extracted metadata.
-
-    Args:
-        path: Absolute or relative path to the TEI XML file.
-
-    Raises:
-        FileNotFoundError: If the path does not exist.
-        etree.XMLSyntaxError: If the file is not well-formed XML.
-    """
+    """A parsed TEI source document with extracted metadata."""
 
     def __init__(self, path: Path) -> None:
+        """Args:
+              path: Absolute or relative path to the TEI XML file.
+
+           Raises:
+              FileNotFoundError: If the path does not exist.
+              etree.XMLSyntaxError: If the file is not well-formed XML.
+        """
         self._path = Path(path)
         if not self._path.exists():
             raise FileNotFoundError(f"TEI document not found: {self._path}")
@@ -38,6 +37,7 @@ class TEIDocument:
 
     @classmethod
     def from_path(cls, path: Path | str) -> TEIDocument:
+        """Supports TEIDocument.from_path(p)."""
         return cls(Path(path))
 
     @property
