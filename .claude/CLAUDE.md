@@ -25,23 +25,7 @@ requirements into the HTML output.
 
 Read all files in `.claude/guidelines/`.
 
-## Repository layout
 
-```
-src/
-  python/         Python build pipeline and compiler framework
-    compilers/    TEICompiler abstract base class and HTMLCompiler
-    build_site.py
-    main.py
-  perseus6/       XML processing utilities; drama XSLT stub
-  xslt/           XSLT stylesheets
-    chunker_core.xsl     importable base — extend via xsl:import
-    generate_chunks.xsl  batch chunk generator
-data/             TEI source texts (git submodule: canonical-greekLit)
-schemas/          TEI ODD schemas (perseus_base.odd, tei_bare.odd)
-tests/            test suite and fixtures
-.claude/          context documents for AI-assisted development
-```
 
 ## Further reading
 
