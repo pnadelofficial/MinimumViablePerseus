@@ -7,3 +7,9 @@
 [submodule "wiki"]
 	path = wiki
 	url = git@github.com:PerseusDLCode/Perseus6.wiki.git
+[submodule "data/canonical-engLit"]
+	path = data/canonical-engLit
+	url = https://github.com/PerseusDL/canonical-engLit
+[submodule "data/canonical-pdlrefwk"]
+	path = data/canonical-pdlrefwk
+	url = https://github.com/PerseusDL/canonical-pdlrefwk
