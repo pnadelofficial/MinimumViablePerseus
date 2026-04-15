@@ -8,6 +8,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+site/
 build/
 develop-eggs/
 dist/
@@ -206,5 +207,12 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
+# MacOS
+.DS_Store
+
 # Emacs
 *.*~
+*~
+
+# Claude
+.claude/settings.local.json

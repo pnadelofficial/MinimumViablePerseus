@@ -1,12 +1,12 @@
 [project]
-name = "python-project-template"
+name = "mvp"
 version = "0.1.0"
-description = "Python project template"
+description = "Minimum Viable Perseus — static site compiler for the Perseus Digital Library"
 authors = [
     {name = "Cliff Wulfman", email = "cwulfman@princeton.edu"},
     {name = "Charles Pletcher", email = "charles.pletcher@gmail.com"}
 ]
-dependencies = ["lxml>=6.0.2", "lxml-stubs>=0.5.1"]
+dependencies = ["lxml>=6.0.4", "lxml-stubs>=0.5.1", "saxonche>=12.9.0"]
 requires-python = ">=3.12"
 readme = "README.md"
 license = {text = "MIT"}
@@ -18,28 +18,33 @@ build-backend = "pdm.backend"
 
 [tool.pdm]
 distribution = true
-package-dir = "src"
+
+[tool.pdm.build]
+package-dir = "src/python"
+editable-backend = "path"
 
 
 [tool.pdm.scripts]
-start = "python -m my_python_project.main"
-test = "pytest"
-test_verbose = "pytest -v"
-cov = "pytest --cov=my_python_project --cov-report=html"
+test = "python -m pytest"
+test_verbose = "python -m pytest -v"
+cov = "python -m pytest --cov=mvp --cov-report=html"
 cov_report = {shell = "python -m http.server -d htmlcov"}
-lint = "ruff check"
-typecheck = "mypy src"
+lint = "python -m ruff check"
+typecheck = "python -m mypy src/python/mvp"
 
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src/python"]
 testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
-addopts = "--cov=my_python_project --cov-report=term-missing"
+addopts = "--cov=mvp --cov-report=term-missing"
+
+[tool.ruff]
+exclude = ["wiki/"]
 
 [tool.coverage.run]
-source = ["src"]
+source = ["src/python/mvp"]
 omit = ["tests/*"]
 
 [tool.coverage.report]
