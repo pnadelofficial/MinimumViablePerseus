@@ -34,7 +34,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
@@ -102,7 +102,6 @@ def make_pipeline(tmp_path, corpus, selector_side_effect=None,
             corpus=corpus,
             site_map=site_map,
             xslt_root=tmp_path / "xslt",
-            template_path=tmp_path / "template.html",
         )
         mock_selector = mock_selector_cls.return_value
 
@@ -142,7 +141,8 @@ class TestBuildPipelineSuccess:
             pl.run()
 
         mock_compiler_cls.return_value.compile.assert_called_once_with(
-            doc, site_map.chunk_dir(doc.metadata.urn)
+            doc, site_map.chunk_dir(doc.metadata.urn),
+            catalog_url=ANY,
         )
 
     def test_run_returns_none_on_success(self, tmp_path):
@@ -207,6 +207,21 @@ class TestBuildPipelineSuccess:
 
         assert mock_catalog_cls.return_value.compile.call_count == 2
 
+    def test_compile_index_called_after_catalogs(self, tmp_path):
+        """compile_index() is called once after all per-language catalogs."""
+        corpus = MagicMock(spec=Corpus)
+        doc = make_mock_doc("urn:cts:latinLit:phi1017.phi007.perseus-lat2",
+                            language="lat")
+        corpus.documents.return_value = [doc]
+        pl, _, _ = make_pipeline(tmp_path, corpus)
+
+        with patch("mvp.pipeline.PageCompiler") as mock_page_cls, \
+             patch("mvp.pipeline.CatalogCompiler") as mock_catalog_cls:
+            mock_page_cls.return_value.compile.return_value = None
+            pl.run()
+
+        mock_catalog_cls.return_value.compile_index.assert_called_once()
+
     def test_empty_corpus_does_not_invoke_catalog_compiler(self, tmp_path):
         corpus = MagicMock(spec=Corpus)
         corpus.documents.return_value = []
@@ -249,7 +264,7 @@ class TestBuildPipelineErrorHandling:
 
         compile_calls = []
 
-        def failing_compile(doc, output_path):
+        def failing_compile(doc, output_path, **kwargs):
             compile_calls.append(doc)
             raise CompilationError(document=doc, message="fail")
 

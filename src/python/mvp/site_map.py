@@ -38,7 +38,7 @@ class SiteMap:
     """
 
     def __init__(self, output_root: Path | str) -> None:
-        self._root = Path(output_root)
+        self._root = Path(output_root).resolve()
 
     @property
     def root(self) -> Path:

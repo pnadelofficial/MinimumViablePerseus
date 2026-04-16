@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from mvp.compilers import CatalogCompiler, CompilationError, PageCompiler
@@ -24,25 +25,24 @@ class BuildPipeline:
         2. Select a chunking strategy for each document.
         3. Compile each document into HTML chunk pages.
         4. Collect TEIMetadata from successfully compiled documents.
-        5. Compile catalog pages from the collected metadata.
+        5. Compile per-language catalog pages from the collected metadata.
+        6. Compile the root index.html linking to each language catalog.
 
     Error policy: collect-all-errors.  All documents are attempted;
     failures are collected and reported at the end.  This is preferred
     over fail-fast for batch builds over large corpora.
 
     Args:
-        corpus:        The TEI source corpus.
-        site_map:      URL/path scheme for compiled artifacts.
-        xslt_root:     Directory containing XSLT stylesheets.
-        template_path: Path to the catalog HTML template.
+        corpus:    The TEI source corpus.
+        site_map:  URL/path scheme for compiled artifacts.
+        xslt_root: Directory containing XSLT stylesheets.
     """
 
     def __init__(self, corpus: Corpus, site_map: SiteMap,
-                 xslt_root: Path, template_path: Path) -> None:
+                 xslt_root: Path) -> None:
         self._corpus = corpus
         self._site_map = site_map
         self._xslt_root = xslt_root
-        self._template_path = template_path
         self._selector = StrategySelector()
 
     def run(self) -> None:
@@ -56,6 +56,9 @@ class BuildPipeline:
         errors: list[CompilationError] = []
 
         for doc in self._corpus.documents():
+            if not doc.metadata.urn:
+                print(f"  SKIPPED:  {doc.path}: empty URN")
+                continue
             try:
                 strategy = self._selector.select(doc)
                 compiler = PageCompiler(
@@ -63,7 +66,11 @@ class BuildPipeline:
                     xslt_root=self._xslt_root,
                 )
                 output_path = self._site_map.chunk_dir(doc.metadata.urn)
-                compiler.compile(doc, output_path)
+                catalog_path = self._site_map.catalog_path(doc.metadata.language)
+                catalog_url = os.path.relpath(
+                    catalog_path, output_path
+                ).replace("\\", "/")
+                compiler.compile(doc, output_path, catalog_url=catalog_url)
                 metadata.append(doc.metadata)
                 print(f"  compiled: {doc.metadata.urn}")
             except CompilationError as exc:
@@ -77,7 +84,7 @@ class BuildPipeline:
               f"{len(errors)} failures.")
 
         if metadata:
-            catalog_compiler = CatalogCompiler(self._template_path)
+            catalog_compiler = CatalogCompiler(site_map=self._site_map)
             # Group metadata by language for per-language catalog pages
             languages: dict[str, list[TEIMetadata]] = {}
             for entry in metadata:
@@ -86,6 +93,11 @@ class BuildPipeline:
             for language, entries in languages.items():
                 output_path = self._site_map.catalog_path(language)
                 catalog_compiler.compile(entries, output_path)
+
+            catalog_compiler.compile_index(
+                languages,
+                self._site_map.root / "index.html",
+            )
 
         if errors:
             raise SystemExit(

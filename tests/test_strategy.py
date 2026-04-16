@@ -224,17 +224,25 @@ class TestStrategySelectorSelect:
         assert isinstance(strategy, MilestoneStrategy)
         assert strategy.chunk_unit == "line"
 
-    def test_selects_division_strategy_for_textpart(self, tmp_path, selector):
-        doc = write_doc(tmp_path, TEXTPART_DIVS_ONLY)
-        strategy = selector.select(doc)
-        assert isinstance(strategy, DivisionStrategy)
-        assert strategy.chunk_unit == "textpart"
+    def test_raises_for_textpart_only_document(self, tmp_path, selector):
+        """Division-only documents raise ValueError until DivisionStrategy XSLT
+        is implemented.  StrategySelector detects the match but skips it because
+        DivisionStrategy.xslt_stylesheet raises NotImplementedError; no other
+        strategy matches, so select() raises ValueError and the document is
+        SKIPPED (not failed) by BuildPipeline.
 
-    def test_selects_division_strategy_for_book(self, tmp_path, selector):
+        When generate_chunks_div.xsl is implemented, update this test to assert
+        that select() returns DivisionStrategy(textpart).
+        """
+        doc = write_doc(tmp_path, TEXTPART_DIVS_ONLY)
+        with pytest.raises(ValueError, match="No chunking strategy"):
+            selector.select(doc)
+
+    def test_raises_for_book_div_only_document(self, tmp_path, selector):
+        """Same as above for div[@type='book']-only documents."""
         doc = write_doc(tmp_path, BOOK_DIVS_ONLY)
-        strategy = selector.select(doc)
-        assert isinstance(strategy, DivisionStrategy)
-        assert strategy.chunk_unit == "book"
+        with pytest.raises(ValueError, match="No chunking strategy"):
+            selector.select(doc)
 
     def test_raises_for_featureless_document(self, tmp_path, selector):
         doc = write_doc(tmp_path, FEATURELESS)
@@ -314,7 +322,7 @@ class TestStrategySelectorOnCorpusFixtures:
         assert isinstance(strategy, MilestoneStrategy)
         assert strategy.chunk_unit == "card"
 
-    def test_galen_gets_division_strategy(self, selector):
+    def test_galen_skipped_until_division_xslt_implemented(self, selector):
         """tlg0057.tlg069 -- Greek prose, Galenus verbatim revised encoding.
 
         This file originates from the 1st1K project and was subsequently
@@ -324,14 +332,15 @@ class TestStrategySelectorOnCorpusFixtures:
         two reference editions (Kuehn and likely Basel/Chartier).  They are
         not structural chunking boundaries.
 
-        StrategySelector correctly returns DivisionStrategy(textpart): the
-        textpart divs are the actual document structure, and milestone
-        detection does not fire because neither ed1page nor ed2page is in
-        _STRATEGIES.
+        DivisionStrategy(textpart) describes this document, but its XSLT
+        stylesheet is not yet implemented.  StrategySelector therefore raises
+        ValueError and BuildPipeline SKIPs the file.
+
+        When generate_chunks_div.xsl is implemented, update this test to assert
+        that select() returns DivisionStrategy(textpart).
         """
         doc = TEIDocument.from_path(
             DATA_DIR / "tlg0057.tlg069.1st1K-grc1.xml"
         )
-        strategy = selector.select(doc)
-        assert isinstance(strategy, DivisionStrategy)
-        assert strategy.chunk_unit == "textpart"
+        with pytest.raises(ValueError, match="No chunking strategy"):
+            selector.select(doc)

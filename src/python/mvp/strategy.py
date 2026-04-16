@@ -134,14 +134,22 @@ class StrategySelector:
     ]
 
     def select(self, doc: TEIDocument) -> ChunkingStrategy:
-        """Return the first strategy that describes doc.
+        """Return the first strategy that describes doc and is fully implemented.
+
+        A strategy that describes the document but whose xslt_stylesheet raises
+        NotImplementedError is silently skipped, so documents that match only
+        unimplemented strategies are treated as having no matching strategy.
 
         Raises:
-            ValueError: If no strategy matches.
+            ValueError: If no implemented strategy matches.
         """
         for strategy in self._STRATEGIES:
             if strategy.describes(doc):
-                return strategy
+                try:
+                    _ = strategy.xslt_stylesheet
+                    return strategy
+                except NotImplementedError:
+                    continue
         raise ValueError(
             f"No chunking strategy found for {doc.path} "
             f"(URN: {doc.metadata.urn})"

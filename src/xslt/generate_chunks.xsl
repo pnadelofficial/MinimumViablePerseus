@@ -36,8 +36,9 @@
        Parameters
        ============================================================ -->
 
-  <xsl:param name="chunk-unit" as="xs:string" select="'card'"/>
-  <xsl:param name="output-dir" as="xs:string" select="'.'"/>
+  <xsl:param name="chunk-unit"  as="xs:string" select="'card'"/>
+  <xsl:param name="output-dir"  as="xs:string" select="'.'"/>
+  <xsl:param name="catalog-url" as="xs:string" select="'/index.html'"/>
 
 
   <!-- ============================================================
@@ -98,12 +99,19 @@
       <xsl:variable name="cts-range"
         select="local:chunk-cts-range($top, $ms-next, $base-urn)"/>
 
+      <!-- Use position() for filenames so they are globally unique even
+           when @n values restart across structural divisions (e.g. card 1
+           in Book 1 and card 1 in Book 2 of the Iliad).  The semantic @n
+           value is preserved in the HTML title and the index.json manifest. -->
+      <xsl:variable name="pos"       select="position()"/>
+      <xsl:variable name="pos-prev"  select="$pos - 1"/>
+      <xsl:variable name="pos-next"  select="if ($ms-next) then $pos + 1 else ()"/>
       <xsl:variable name="file-name"
-        select="concat($chunk-unit, '_', @n, '.html')"/>
+        select="concat($chunk-unit, '_', $pos, '.html')"/>
       <xsl:variable name="prev-file"
-        select="if ($ms-prev) then concat($chunk-unit, '_', $ms-prev/@n, '.html') else ()"/>
+        select="if ($ms-prev) then concat($chunk-unit, '_', $pos-prev, '.html') else ()"/>
       <xsl:variable name="next-file"
-        select="if ($ms-next) then concat($chunk-unit, '_', $ms-next/@n, '.html') else ()"/>
+        select="if ($ms-next) then concat($chunk-unit, '_', $pos-next, '.html') else ()"/>
 
       <!-- ── Write the chunk HTML file ── -->
       <xsl:result-document
@@ -138,6 +146,7 @@ h1           { font-size: 1em; color: #555; margin-bottom: .25em }
           </head>
           <body>
             <nav>
+              <a href="{$catalog-url}">&#x2190; Catalog</a>
               <xsl:if test="exists($prev-file)">
                 <a href="{$prev-file}">&#x2190; prev</a>
               </xsl:if>
