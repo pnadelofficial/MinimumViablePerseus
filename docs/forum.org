@@ -1,0 +1,98 @@
+# -*- lexical-binding: t; -*-
+#+TITLE: MVP Forum
+#+DATE: <2026-04-14 Tue>
+#+AUTHOR: Cliff Wulfman
+
+This file, =forum.org= is a place for the exchange of ideas among
+participating agents, human and AI.
+
+* Researching milestones in Perseus Corpora
+The TEI-encoded texts in the Perseus Corpora use many types of <div>
+element and many kinds of <milestone unit="someUnit"> elements to
+represent structure, as well as various types of page-break markers
+<pb>. We want to analyze the use of these structuring elements across
+the entire corpus in order to design strategies for chunking the TEI
+texts into sequential HTML pages that are identifiable via CTS urns.
+
+** TODO Implement script
+:PROPERTIES:
+:CUSTOM_ID: analyze-milestones-implementation
+:ASSIGNEES: Claude Code
+:END:
+
+The programming task here is to write one or more Python scripts that
+will traverse each of the corpus directories in the data/ directory
+and compile a report of div, pb, and milestone use in each
+document. These reports will be collected in a milestone-reports/
+directory, where they may be used for analysis.
+
+*** Analysis
+[2026-04-15] Implemented in the new =perseus-tools= repo at
+=PerseusDLCode/perseus-tools= (local:
+=/Users/wulfmanc/repos/gh/PerseusDLCode/perseus-tools=).
+
+The script is a proper PDM package (src layout, same conventions as MVP).
+Entry point: =analyze-milestones --source_dir PATH --output_dir PATH=.
+
+JSON shape adopted:
+#+begin_src json
+{
+  "filename": "<stem>",
+  "milestones": [{"unit": "<unit-attr>", "frequency": N}],
+  "divs": [{"div_type": "<type>", "subtypes": [{"subtype": "<subtype>|null", "frequency": N}]}]
+}
+#+end_src
+
+The forum spec used ={"milestone": ..., "frequency": ...}= but the key name
+was ambiguous (the value is the =@unit= attribute). Normalized to =unit= for
+clarity.
+
+Verified against =canonical-greekLit=: 1,615 files processed successfully.
+Sophocles Ajax (tlg0011.tlg001) shows 65 =card= milestones and the expected
+=textpart= div subtypes (strophe/antistrophe, episode, etc.).
+
+*** Components
+- *analyze_milestones(tei_doc:Path, target_dir:Path) -> None:*
+
+  A function that traverses a TEI document, using lxml, and compiles
+  several lists:
+
+  - a list of milestone types : organized by unit attribute.  Record the
+    frequency of each type.
+
+  - a list of div types, organized by type and subtype attributes.
+    Record the frequency of each type and subtype.
+
+   The output of this function is a JSON object:
+   { "filename" : name ,
+     "milestones" : [{"milestone" : milestone, "frequency" :
+   frequency}],
+     "divs" : [{"div_type" : [{ "subtype" : subtype "frequency"}] }]
+     }
+
+  The object should be serialized to target_dir/filename.json.
+
+- *analyze-milestones.py --source_dir --output_dir*
+  A script that traverses source_dir, applying =analyze_milestones()=
+  to each TEI document (be sure to skip __cts__.xml files).
+
+*** Implementation
+[2026-04-15] Created =perseus-tools= repo with the following structure:
+
+#+begin_example
+perseus-tools/
+├── pyproject.toml
+├── README.md
+├── src/python/perseus_tools/
+│   ├── __init__.py
+│   └── analyze_milestones.py
+└── tests/
+#+end_example
+
+Key files:
+- =src/python/perseus_tools/analyze_milestones.py= — =analyze_milestones()=
+  function + =main()= CLI entry point
+- =pyproject.toml= — PDM package, entry point =analyze-milestones=
+
+Tested against =canonical-greekLit= (1,615 files). GitHub repo not yet
+created; local only at =/Users/wulfmanc/repos/gh/PerseusDLCode/perseus-tools=.
