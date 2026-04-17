@@ -414,3 +414,16 @@ class TestPageCompilerIntegration:
             "Expected 11 chapters in Antoninus Caracallus"
         html = (tmp_path / "chapter_1.html").read_text(encoding="utf-8")
         assert "<p>" in html, "Chapter 1 should contain paragraph content"
+
+    def test_compile_enriches_index_json_with_author_and_language(
+            self, tmp_path):
+        """PageCompiler.compile() must inject author and language into index.json."""
+        doc = TEIDocument.from_path(DATA_DIR / "phi1017.phi007.perseus-lat2.xml")
+        strategy = MilestoneStrategy(unit="card")
+        compiler = PageCompiler(strategy=strategy, xslt_root=XSLT_ROOT)
+        compiler.compile(doc, tmp_path)
+
+        manifest = json.loads((tmp_path / "index.json").read_text())
+        assert "author" in manifest, "index.json must contain 'author'"
+        assert "language" in manifest, "index.json must contain 'language'"
+        assert manifest["language"] == "lat"
