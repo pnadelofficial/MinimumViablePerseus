@@ -1,1 +1,0 @@
-This analysis sets the scope of the implementation. Many capabilities have been explored since P4 was deployed, and they have been demonstrated in the Scaife Viewer and Beyond Translation prototypes. Taking those capabilities beyond the prototype stage, however, is beyond the scope of this project's first phase.
