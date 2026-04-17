@@ -38,9 +38,9 @@ class BuildPipeline:
         xslt_root: Directory containing XSLT stylesheets.
     """
 
-    def __init__(self, corpus: Corpus, site_map: SiteMap,
+    def __init__(self, corpora: list[Corpus], site_map: SiteMap,
                  xslt_root: Path) -> None:
-        self._corpus = corpus
+        self._corpora = corpora
         self._site_map = site_map
         self._xslt_root = xslt_root
         self._selector = StrategySelector()
@@ -55,30 +55,31 @@ class BuildPipeline:
         metadata: list[TEIMetadata] = []
         errors: list[CompilationError] = []
 
-        for doc in self._corpus.documents():
-            if not doc.metadata.urn:
-                print(f"  SKIPPED:  {doc.path}: empty URN")
-                continue
-            try:
-                strategy = self._selector.select(doc)
-                compiler = PageCompiler(
-                    strategy=strategy,
-                    xslt_root=self._xslt_root,
-                )
-                output_path = self._site_map.chunk_dir(doc.metadata.urn)
-                catalog_path = self._site_map.catalog_path(doc.metadata.language)
-                catalog_url = os.path.relpath(
-                    catalog_path, output_path
-                ).replace("\\", "/")
-                compiler.compile(doc, output_path, catalog_url=catalog_url)
-                metadata.append(doc.metadata)
-                print(f"  compiled: {doc.metadata.urn}")
-            except CompilationError as exc:
-                errors.append(exc)
-                print(f"  FAILED:   {exc}")
-            except ValueError as exc:
-                # StrategySelector found no matching strategy
-                print(f"  SKIPPED:  {doc.path}: {exc}")
+        for corpus in self._corpora:
+            for doc in corpus.documents():
+                if not doc.metadata.urn:
+                    print(f"  SKIPPED:  {doc.path}: empty URN")
+                    continue
+                try:
+                    strategy = self._selector.select(doc)
+                    compiler = PageCompiler(
+                        strategy=strategy,
+                        xslt_root=self._xslt_root,
+                    )
+                    output_path = self._site_map.chunk_dir(doc.metadata.urn)
+                    catalog_path = self._site_map.catalog_path(doc.metadata.language)
+                    catalog_url = os.path.relpath(
+                        catalog_path, output_path
+                    ).replace("\\", "/")
+                    compiler.compile(doc, output_path, catalog_url=catalog_url)
+                    metadata.append(doc.metadata)
+                    print(f"  compiled: {doc.metadata.urn}")
+                except CompilationError as exc:
+                    errors.append(exc)
+                    print(f"  FAILED:   {exc}")
+                except ValueError as exc:
+                    # StrategySelector found no matching strategy
+                    print(f"  SKIPPED:  {doc.path}: {exc}")
 
         print(f"\nCompiled {len(metadata)} documents, "
               f"{len(errors)} failures.")

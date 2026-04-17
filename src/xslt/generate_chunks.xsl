@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   generate_chunks.xsl
-  Batch generator: produces one HTML file per milestone chunk plus index.json.
+  Batch generator: produces one HTML file per milestone chunk, a toc.html,
+  and index.json.
 
   Parameters:
     chunk-unit  (xs:string)  milestone/@unit value to chunk on  [default: 'card']
     output-dir  (xs:string)  directory to write output files to [default: '.']
+    catalog-url (xs:string)  relative URL for the Catalog nav link
 
-  Output files are named  {chunk-unit}_{@n}.html  (e.g. card_57.html).
+  Output files are named  {chunk-unit}_{position}.html  (e.g. card_57.html).
 
   Usage with Saxon on the command line:
     saxon -s:phi1017.phi007.perseus-lat2.xml \
@@ -48,7 +50,10 @@
   <xsl:template match="/">
     <xsl:variable name="base-urn"   select="local:extract-base-urn(.)"/>
     <xsl:variable name="work-title" select="string((//tei:titleStmt/tei:title)[1])"/>
+    <xsl:variable name="doc-lang"   select="string((//tei:text/@xml:lang)[1])"/>
     <xsl:variable name="milestones" select="//tei:milestone[@unit = $chunk-unit]"/>
+    <xsl:variable name="home-url"
+      select="replace($catalog-url, 'catalog/[^/]+\.html$', 'index.html')"/>
 
     <xsl:if test="empty($milestones)">
       <xsl:message terminate="yes">
@@ -59,7 +64,7 @@
 
     <!--
       xsl:iterate lets us accumulate index metadata across chunks and
-      write index.json in xsl:on-completion once all chunks are done.
+      write index.json and toc.html in xsl:on-completion once all chunks are done.
     -->
     <xsl:iterate select="$milestones">
       <xsl:param name="index-entries" as="map(*)*" select="()"/>
@@ -75,6 +80,46 @@
             'title'   : $work-title,
             'chunks'  : array { $index-entries }
           }"/>
+        </xsl:result-document>
+
+        <!-- TOC page -->
+        <xsl:result-document
+          href        ="{$output-dir}/toc.html"
+          method      ="html"
+          html-version="5"
+          indent      ="yes">
+          <html>
+            <xsl:if test="$doc-lang != ''">
+              <xsl:attribute name="lang" select="$doc-lang"/>
+            </xsl:if>
+            <head>
+              <meta charset="utf-8"/>
+              <meta name="viewport" content="width=device-width, initial-scale=1"/>
+              <title><xsl:value-of select="$work-title"/> — Contents | Perseus</title>
+              <style><xsl:value-of select="$page-css"/></style>
+            </head>
+            <body>
+              <header class="site-header">
+                <a href="{$home-url}">Perseus Digital Library</a>
+              </header>
+              <nav class="chunk-nav">
+                <span><a href="{$catalog-url}">&#x2190; Catalog</a></span>
+              </nav>
+              <main>
+                <h1><xsl:value-of select="$work-title"/></h1>
+                <ol class="toc">
+                  <xsl:for-each select="$index-entries">
+                    <li>
+                      <a href="{.('file')}">
+                        <xsl:value-of select=".('n')"/>
+                      </a>
+                    </li>
+                  </xsl:for-each>
+                </ol>
+              </main>
+              <footer class="site-footer">Perseus Digital Library</footer>
+            </body>
+          </html>
         </xsl:result-document>
       </xsl:on-completion>
 
@@ -127,52 +172,59 @@
         html-version="5"
         indent    ="yes">
         <html>
+          <xsl:if test="$doc-lang != ''">
+            <xsl:attribute name="lang" select="$doc-lang"/>
+          </xsl:if>
           <head>
             <meta charset="utf-8"/>
+            <meta name="viewport" content="width=device-width, initial-scale=1"/>
             <title>
               <xsl:value-of select="$work-title"/>
               <xsl:text> &#x2014; </xsl:text>
               <xsl:value-of select="$chunk-unit"/>
               <xsl:text> </xsl:text>
               <xsl:value-of select="@n"/>
+              <xsl:text> | Perseus</xsl:text>
             </title>
             <xsl:if test="exists($cts-range)">
               <meta name="dc.identifier" content="{$cts-range}"/>
             </xsl:if>
-            <style>
-body         { font-family: serif; max-width: 48em; margin: 2em auto }
-nav          { margin-bottom: 1em; font-size: .9em }
-nav a        { margin-right: 1em }
-h1           { font-size: 1em; color: #555; margin-bottom: .25em }
-.speech      { margin: 1em 0 }
-.speaker     { font-weight: bold; display: block; margin-bottom: .25em }
-.line        { margin: .1em 0; padding-left: 2em }
-.gap         { color: #888; font-style: italic }
-.note        { border-bottom: 1px dotted #888 }
-            </style>
+            <style><xsl:value-of select="$page-css"/></style>
           </head>
           <body>
-            <nav>
-              <a href="{$catalog-url}">&#x2190; Catalog</a>
-              <xsl:if test="exists($prev-file)">
-                <a href="{$prev-file}">&#x2190; prev</a>
-              </xsl:if>
-              <xsl:if test="exists($next-file)">
-                <a href="{$next-file}">next &#x2192;</a>
-              </xsl:if>
+            <header class="site-header">
+              <a href="{$home-url}">Perseus Digital Library</a>
+            </header>
+            <nav class="chunk-nav">
+              <span>
+                <a href="{$catalog-url}">&#x2190; Catalog</a>
+                <xsl:text> · </xsl:text>
+                <a href="toc.html">Contents</a>
+              </span>
+              <span>
+                <xsl:if test="exists($prev-file)">
+                  <a href="{$prev-file}">&#x2190; prev</a>
+                </xsl:if>
+                <xsl:if test="exists($next-file)">
+                  <a href="{$next-file}">next &#x2192;</a>
+                </xsl:if>
+              </span>
             </nav>
-            <h1>
-              <xsl:value-of select="
-                if (exists($cts-range)) then $cts-range
-                else concat($work-title, ' — ', $chunk-unit, ' ', @n)
-              "/>
-            </h1>
-            <!-- Single-pass transform: templates check $start/$stop themselves -->
-            <xsl:apply-templates select="$top" mode="chunk">
-              <xsl:with-param name="start"    select="$ms"      tunnel="yes"/>
-              <xsl:with-param name="stop"     select="$ms-next" tunnel="yes"/>
-              <xsl:with-param name="base-urn" select="$base-urn" tunnel="yes"/>
-            </xsl:apply-templates>
+            <main>
+              <h1>
+                <xsl:value-of select="
+                  if (exists($cts-range)) then $cts-range
+                  else concat($work-title, ' — ', $chunk-unit, ' ', @n)
+                "/>
+              </h1>
+              <!-- Single-pass transform: templates check $start/$stop themselves -->
+              <xsl:apply-templates select="$top" mode="chunk">
+                <xsl:with-param name="start"    select="$ms"      tunnel="yes"/>
+                <xsl:with-param name="stop"     select="$ms-next" tunnel="yes"/>
+                <xsl:with-param name="base-urn" select="$base-urn" tunnel="yes"/>
+              </xsl:apply-templates>
+            </main>
+            <footer class="site-footer">Perseus Digital Library</footer>
           </body>
         </html>
       </xsl:result-document>

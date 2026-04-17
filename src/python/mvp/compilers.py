@@ -28,10 +28,23 @@ _LANGUAGE_NAMES: dict[str, str] = {
     "eng": "English",
     "ara": "Arabic",
     "per": "Persian",
+    "deu": "German",
+    "fra": "French",
+    "ita": "Italian",
+    "spa": "Spanish",
+    "rus": "Russian",
 }
 
-_CATALOG_CSS = """
-body         { font-family: serif; max-width: 60em; margin: 2em auto }
+_SHARED_CSS = """
+.site-header { border-bottom: 1px solid #ccc; margin-bottom: 1.5em;
+               padding-bottom: .5em; font-size: .9em; color: #555 }
+.site-header a { text-decoration: none; font-weight: bold; color: inherit }
+.site-footer { border-top: 1px solid #eee; margin-top: 2em; padding-top: .5em;
+               font-size: .8em; color: #888; text-align: center }
+"""
+
+_CATALOG_CSS = _SHARED_CSS + """
+body         { font-family: serif; max-width: 60em; margin: 0 auto; padding: 1em 2em }
 h1           { margin-bottom: 0.25em }
 .summary     { color: #555; margin-bottom: 1.5em }
 .author-group { margin: 1.5em 0 }
@@ -40,13 +53,12 @@ h1           { margin-bottom: 0.25em }
 .work-entry  { margin: .35em 0 .35em 1.5em }
 .work-entry a { text-decoration: none }
 .work-entry a:hover { text-decoration: underline }
-nav          { margin-bottom: 2em; font-size: .9em }
-nav a        { margin-right: 1em }
 """
 
-_INDEX_CSS = """
-body  { font-family: serif; max-width: 40em; margin: 4em auto }
-h1    { margin-bottom: 0.5em }
+_INDEX_CSS = _SHARED_CSS + """
+body  { font-family: serif; max-width: 40em; margin: 0 auto; padding: 2em }
+h1    { margin-bottom: 0.25em }
+.tagline { color: #555; margin-bottom: 1.5em }
 ul    { list-style: none; padding: 0 }
 li    { margin: .5em 0; font-size: 1.1em }
 """
@@ -136,6 +148,18 @@ class PageCompiler:
                 )
                 transformer.set_base_output_uri(output_path.as_uri() + "/")
                 transformer.transform_to_string(source_file=str(doc.path))
+
+            # Enrich the XSLT-written index.json with author and language so
+            # the catalog can be rebuilt from manifests alone (no source TEI).
+            manifest = output_path / "index.json"
+            if manifest.exists():
+                data = json.loads(manifest.read_text(encoding="utf-8"))
+                data["author"]   = doc.metadata.author
+                data["language"] = doc.metadata.language
+                manifest.write_text(
+                    json.dumps(data, indent=2, ensure_ascii=False),
+                    encoding="utf-8",
+                )
         except Exception as exc:
             raise CompilationError(
                 document=doc,
@@ -218,14 +242,21 @@ class CatalogCompiler:
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Perseus — {lang_name} Texts</title>
   <style>{_CATALOG_CSS}</style>
 </head>
 <body>
-  <nav><a href="{index_url}">&#x2190; All Languages</a></nav>
-  <h1>{lang_name} Texts</h1>
-  <p class="summary">{count} {noun}</p>
+  <header class="site-header">
+    <a href="{index_url}">Perseus Digital Library</a>
+    <span> · All Languages</span>
+  </header>
+  <main>
+    <h1>{lang_name} Texts</h1>
+    <p class="summary">{count} {noun}</p>
 {body}
+  </main>
+  <footer class="site-footer">Perseus Digital Library</footer>
 </body>
 </html>
 """
@@ -260,16 +291,24 @@ class CatalogCompiler:
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Perseus Digital Library</title>
   <style>{_INDEX_CSS}
 .count {{ color: #888; font-size: .9em }}
 </style>
 </head>
 <body>
-  <h1>Perseus Digital Library</h1>
-  <ul>
+  <header class="site-header">
+    <span class="site-name">Perseus Digital Library</span>
+  </header>
+  <main>
+    <h1>Perseus Digital Library</h1>
+    <p class="tagline">Texts from ancient Greece and Rome.</p>
+    <ul>
 {items_html}
-  </ul>
+    </ul>
+  </main>
+  <footer class="site-footer">Perseus Digital Library</footer>
 </body>
 </html>
 """

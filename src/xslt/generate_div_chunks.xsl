@@ -2,7 +2,7 @@
 <!--
   generate_div_chunks.xsl
   Division-based batch generator: produces one HTML file per structural div
-  (e.g. chapter, scene, poem) plus index.json.
+  (e.g. chapter, scene, poem), a toc.html, and index.json.
 
   Parameters:
     chunk-unit  (xs:string)  @subtype value of the target divs  [default: 'chapter']
@@ -44,6 +44,9 @@
   <xsl:template match="/">
     <xsl:variable name="base-urn"   select="local:extract-base-urn(.)"/>
     <xsl:variable name="work-title" select="string((//tei:titleStmt/tei:title)[1])"/>
+    <xsl:variable name="doc-lang"   select="string((//tei:text/@xml:lang)[1])"/>
+    <xsl:variable name="home-url"
+      select="replace($catalog-url, 'catalog/[^/]+\.html$', 'index.html')"/>
 
     <!-- Top-level divs matching chunk-unit.
          Try @subtype first (e.g. subtype="chapter"); fall back to @type
@@ -81,6 +84,46 @@
             'chunks'  : array { $index-entries }
           }"/>
         </xsl:result-document>
+
+        <!-- TOC page -->
+        <xsl:result-document
+          href        ="{$output-dir}/toc.html"
+          method      ="html"
+          html-version="5"
+          indent      ="yes">
+          <html>
+            <xsl:if test="$doc-lang != ''">
+              <xsl:attribute name="lang" select="$doc-lang"/>
+            </xsl:if>
+            <head>
+              <meta charset="utf-8"/>
+              <meta name="viewport" content="width=device-width, initial-scale=1"/>
+              <title><xsl:value-of select="$work-title"/> — Contents | Perseus</title>
+              <style><xsl:value-of select="$page-css"/></style>
+            </head>
+            <body>
+              <header class="site-header">
+                <a href="{$home-url}">Perseus Digital Library</a>
+              </header>
+              <nav class="chunk-nav">
+                <span><a href="{$catalog-url}">&#x2190; Catalog</a></span>
+              </nav>
+              <main>
+                <h1><xsl:value-of select="$work-title"/></h1>
+                <ol class="toc">
+                  <xsl:for-each select="$index-entries">
+                    <li>
+                      <a href="{.('file')}">
+                        <xsl:value-of select=".('n')"/>
+                      </a>
+                    </li>
+                  </xsl:for-each>
+                </ol>
+              </main>
+              <footer class="site-footer">Perseus Digital Library</footer>
+            </body>
+          </html>
+        </xsl:result-document>
       </xsl:on-completion>
 
       <xsl:variable name="div"      select="."/>
@@ -105,36 +148,42 @@
         html-version="5"
         indent      ="yes">
         <html>
+          <xsl:if test="$doc-lang != ''">
+            <xsl:attribute name="lang" select="$doc-lang"/>
+          </xsl:if>
           <head>
             <meta charset="utf-8"/>
-            <title><xsl:value-of select="$chunk-label"/></title>
-            <style>
-body         { font-family: serif; max-width: 48em; margin: 2em auto }
-nav          { margin-bottom: 1em; font-size: .9em }
-nav a        { margin-right: 1em }
-h1           { font-size: 1em; color: #555; margin-bottom: .25em }
-.speech      { margin: 1em 0 }
-.speaker     { font-weight: bold; display: block; margin-bottom: .25em }
-.line        { margin: .1em 0; padding-left: 2em }
-.gap         { color: #888; font-style: italic }
-.note        { border-bottom: 1px dotted #888 }
-            </style>
+            <meta name="viewport" content="width=device-width, initial-scale=1"/>
+            <title><xsl:value-of select="$chunk-label"/> | Perseus</title>
+            <style><xsl:value-of select="$page-css"/></style>
           </head>
           <body>
-            <nav>
-              <a href="{$catalog-url}">&#x2190; Catalog</a>
-              <xsl:if test="exists($prev-file)">
-                <a href="{$prev-file}">&#x2190; prev</a>
-              </xsl:if>
-              <xsl:if test="exists($next-file)">
-                <a href="{$next-file}">next &#x2192;</a>
-              </xsl:if>
+            <header class="site-header">
+              <a href="{$home-url}">Perseus Digital Library</a>
+            </header>
+            <nav class="chunk-nav">
+              <span>
+                <a href="{$catalog-url}">&#x2190; Catalog</a>
+                <xsl:text> · </xsl:text>
+                <a href="toc.html">Contents</a>
+              </span>
+              <span>
+                <xsl:if test="exists($prev-file)">
+                  <a href="{$prev-file}">&#x2190; prev</a>
+                </xsl:if>
+                <xsl:if test="exists($next-file)">
+                  <a href="{$next-file}">next &#x2192;</a>
+                </xsl:if>
+              </span>
             </nav>
-            <h1><xsl:value-of select="$chunk-label"/></h1>
-            <!-- Render the full div content; no start/stop filtering needed -->
-            <xsl:apply-templates select="$div/node()" mode="chunk">
-              <xsl:with-param name="base-urn" select="$base-urn" tunnel="yes"/>
-            </xsl:apply-templates>
+            <main>
+              <h1><xsl:value-of select="$chunk-label"/></h1>
+              <!-- Render the full div content; no start/stop filtering needed -->
+              <xsl:apply-templates select="$div/node()" mode="chunk">
+                <xsl:with-param name="base-urn" select="$base-urn" tunnel="yes"/>
+              </xsl:apply-templates>
+            </main>
+            <footer class="site-footer">Perseus Digital Library</footer>
           </body>
         </html>
       </xsl:result-document>

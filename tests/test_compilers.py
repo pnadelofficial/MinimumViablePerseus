@@ -311,6 +311,19 @@ class TestCatalogCompilerCompile:
         # Horace comes before Ovid, Ovid before Virgil
         assert html.index("Horace") < html.index("Ovid") < html.index("Virgil")
 
+    def test_catalog_has_page_chrome(self, tmp_path):
+        """Catalog page must have viewport meta, site header, main, and footer."""
+        site_map = SiteMap(tmp_path / "output")
+        compiler = CatalogCompiler(site_map=site_map)
+        entry = make_entry("urn:cts:latinLit:phi1017.phi007.perseus-lat2")
+        output_path = tmp_path / "catalog" / "lat.html"
+        compiler.compile([entry], output_path)
+        html = output_path.read_text(encoding="utf-8")
+        assert 'name="viewport"' in html
+        assert 'class="site-header"' in html
+        assert '<main' in html
+        assert 'class="site-footer"' in html
+
 
 class TestCatalogCompilerIndex:
 
@@ -339,6 +352,20 @@ class TestCatalogCompilerIndex:
         assert "/catalog/grc.html" in html
         assert "Latin" in html
         assert "Greek" in html
+
+    def test_index_has_page_chrome(self, tmp_path):
+        """Index page must have viewport meta, site header, tagline, main, and footer."""
+        site_map = SiteMap(tmp_path / "output")
+        compiler = CatalogCompiler(site_map=site_map)
+        languages = {"lat": [make_entry("urn:cts:latinLit:phi1017.phi007.test")]}
+        output_path = tmp_path / "index.html"
+        compiler.compile_index(languages, output_path)
+        html = output_path.read_text(encoding="utf-8")
+        assert 'name="viewport"' in html
+        assert 'class="site-header"' in html
+        assert 'class="tagline"' in html
+        assert '<main' in html
+        assert 'class="site-footer"' in html
 
 
 # ---------------------------------------------------------------------------
@@ -381,6 +408,23 @@ class TestPageCompilerIntegration:
         html = (tmp_path / "card_1.html").read_text(encoding="utf-8")
         assert "<!DOCTYPE html>" in html or "<html" in html
         assert "<nav" in html
+        assert 'name="viewport"' in html
+        assert 'class="site-header"' in html
+        assert 'class="site-footer"' in html
+        assert "<main" in html
+        assert "toc.html" in html
+
+    def test_seneca_toc_is_generated(self, tmp_path):
+        """generate_chunks.xsl must write a toc.html alongside index.json."""
+        doc = TEIDocument.from_path(SENECA_PATH)
+        strategy = MilestoneStrategy(unit="card")
+        compiler = PageCompiler(strategy=strategy, xslt_root=XSLT_ROOT)
+        compiler.compile(doc, tmp_path)
+
+        assert (tmp_path / "toc.html").exists(), "Expected toc.html to be produced"
+        toc = (tmp_path / "toc.html").read_text(encoding="utf-8")
+        assert "card_1.html" in toc
+        assert 'class="toc"' in toc
 
     def test_dtd_document_produces_chunks(self, tmp_path):
         """Documents with DOCTYPE references compile after the DTD parser fix."""
@@ -414,3 +458,16 @@ class TestPageCompilerIntegration:
             "Expected 11 chapters in Antoninus Caracallus"
         html = (tmp_path / "chapter_1.html").read_text(encoding="utf-8")
         assert "<p>" in html, "Chapter 1 should contain paragraph content"
+
+    def test_compile_enriches_index_json_with_author_and_language(
+            self, tmp_path):
+        """PageCompiler.compile() must inject author and language into index.json."""
+        doc = TEIDocument.from_path(DATA_DIR / "phi1017.phi007.perseus-lat2.xml")
+        strategy = MilestoneStrategy(unit="card")
+        compiler = PageCompiler(strategy=strategy, xslt_root=XSLT_ROOT)
+        compiler.compile(doc, tmp_path)
+
+        manifest = json.loads((tmp_path / "index.json").read_text())
+        assert "author" in manifest, "index.json must contain 'author'"
+        assert "language" in manifest, "index.json must contain 'language'"
+        assert manifest["language"] == "lat"
