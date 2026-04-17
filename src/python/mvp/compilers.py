@@ -141,6 +141,18 @@ class PageCompiler:
                 )
                 transformer.set_base_output_uri(output_path.as_uri() + "/")
                 transformer.transform_to_string(source_file=str(doc.path))
+
+            # Enrich the XSLT-written index.json with author and language so
+            # the catalog can be rebuilt from manifests alone (no source TEI).
+            manifest = output_path / "index.json"
+            if manifest.exists():
+                data = json.loads(manifest.read_text(encoding="utf-8"))
+                data["author"]   = doc.metadata.author
+                data["language"] = doc.metadata.language
+                manifest.write_text(
+                    json.dumps(data, indent=2, ensure_ascii=False),
+                    encoding="utf-8",
+                )
         except Exception as exc:
             raise CompilationError(
                 document=doc,

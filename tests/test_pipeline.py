@@ -99,7 +99,7 @@ def make_pipeline(tmp_path, corpus, selector_side_effect=None,
             )
         site_map = SiteMap(tmp_path / "output")
         pl = BuildPipeline(
-            corpus=corpus,
+            corpora=[corpus],
             site_map=site_map,
             xslt_root=tmp_path / "xslt",
         )
@@ -120,6 +120,19 @@ class TestBuildPipelineConstruction:
     def test_construction_does_not_raise(self, tmp_path):
         corpus = MagicMock(spec=Corpus)
         pl, _, _ = make_pipeline(tmp_path, corpus)
+        assert pl is not None
+
+    def test_accepts_multiple_corpora(self, tmp_path):
+        corpus_a = MagicMock(spec=Corpus)
+        corpus_b = MagicMock(spec=Corpus)
+        corpus_a.documents.return_value = []
+        corpus_b.documents.return_value = []
+        with patch("mvp.pipeline.StrategySelector"):
+            pl = BuildPipeline(
+                corpora=[corpus_a, corpus_b],
+                site_map=SiteMap(tmp_path / "output"),
+                xslt_root=tmp_path / "xslt",
+            )
         assert pl is not None
 
 
@@ -221,6 +234,34 @@ class TestBuildPipelineSuccess:
             pl.run()
 
         mock_catalog_cls.return_value.compile_index.assert_called_once()
+
+    def test_multiple_corpora_documents_all_compiled(self, tmp_path):
+        """Documents from all corpora are compiled before catalog is written."""
+        corpus_a = MagicMock(spec=Corpus)
+        corpus_b = MagicMock(spec=Corpus)
+        doc_a = make_mock_doc("urn:cts:latinLit:phi1017.phi007.perseus-lat2",
+                              language="lat")
+        doc_b = make_mock_doc("urn:cts:greekLit:tlg0011.tlg001.perseus-grc2",
+                              language="grc")
+        corpus_a.documents.return_value = [doc_a]
+        corpus_b.documents.return_value = [doc_b]
+
+        with patch("mvp.pipeline.StrategySelector") as mock_sel:
+            mock_sel.return_value.select.return_value = MilestoneStrategy(unit="card")
+            site_map = SiteMap(tmp_path / "output")
+            pl = BuildPipeline(
+                corpora=[corpus_a, corpus_b],
+                site_map=site_map,
+                xslt_root=tmp_path / "xslt",
+            )
+
+        with patch("mvp.pipeline.PageCompiler") as mock_page_cls, \
+             patch("mvp.pipeline.CatalogCompiler") as mock_catalog_cls:
+            mock_page_cls.return_value.compile.return_value = None
+            pl.run()
+
+        assert mock_page_cls.return_value.compile.call_count == 2
+        assert mock_catalog_cls.return_value.compile.call_count == 2
 
     def test_empty_corpus_does_not_invoke_catalog_compiler(self, tmp_path):
         corpus = MagicMock(spec=Corpus)
