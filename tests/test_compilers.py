@@ -393,3 +393,24 @@ class TestPageCompilerIntegration:
         assert (tmp_path / "index.json").exists()
         manifest = json.loads((tmp_path / "index.json").read_text())
         assert len(manifest["chunks"]) == 2
+
+    def test_caracallus_produces_chapter_chunks(self, tmp_path):
+        """phi2331.phi013 -- SHA Antoninus Caracallus.
+
+        The refState hint selects DivisionStrategy(chapter), which uses
+        generate_div_chunks.xsl.  Expect one file per chapter (~11 chapters)
+        rather than one file per section (~100 sections).
+        """
+        from mvp.strategy import DivisionStrategy
+        doc = TEIDocument.from_path(DATA_DIR / "phi2331.phi013.perseus-lat2.xml")
+        strategy = DivisionStrategy(div_type="textpart", subtype="chapter")
+        compiler = PageCompiler(strategy=strategy, xslt_root=XSLT_ROOT)
+        compiler.compile(doc, tmp_path)
+
+        assert (tmp_path / "chapter_1.html").exists()
+        assert (tmp_path / "index.json").exists()
+        manifest = json.loads((tmp_path / "index.json").read_text())
+        assert len(manifest["chunks"]) == 11, \
+            "Expected 11 chapters in Antoninus Caracallus"
+        html = (tmp_path / "chapter_1.html").read_text(encoding="utf-8")
+        assert "<p>" in html, "Chapter 1 should contain paragraph content"

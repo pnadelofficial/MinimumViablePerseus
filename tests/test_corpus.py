@@ -226,8 +226,8 @@ class TestCorpusOverDataDir:
     def corpus(self):
         return Corpus(DATA_DIR)
 
-    def test_finds_four_fixtures(self, corpus):
-        assert len(list(corpus.documents())) == 4
+    def test_finds_five_fixtures(self, corpus):
+        assert len(list(corpus.documents())) == 5
 
     def test_seneca_in_corpus(self, corpus):
         doc = corpus.document(

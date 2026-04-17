@@ -190,6 +190,17 @@ class TEIDocument:
             return "verse"
         return "prose"
 
+    def chunk_hint(self) -> str | None:
+        """Return the chunk unit from <refState n='chunk'>, or None.
+
+        When present, this is an editorial signal in the TEI header naming
+        the preferred chunking granularity (e.g. 'chapter', 'card', 'poem').
+        StrategySelector consults this before falling back to body inspection.
+        """
+        root = self._tree.getroot()
+        el = root.find(".//tei:encodingDesc//tei:refState[@n='chunk']", NS)
+        return el.get("unit") if el is not None else None
+
     def _extract_chunk_unit(self, root: etree._Element) -> str:
         # Read the first milestone/@unit found in the text body.
         # If none, fall back to 'section' as a safe default.
