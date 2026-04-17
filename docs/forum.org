@@ -14,10 +14,14 @@ represent structure, as well as various types of page-break markers
 the entire corpus in order to design strategies for chunking the TEI
 texts into sequential HTML pages that are identifiable via CTS urns.
 
-** TODO Implement script
+** DONE Implement script
+CLOSED: [2026-04-16 Thu 10:36]
 :PROPERTIES:
 :CUSTOM_ID: analyze-milestones-implementation
 :ASSIGNEES: Claude Code
+:END:
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2026-04-16 Thu 10:36]
 :END:
 
 The programming task here is to write one or more Python scripts that
@@ -96,3 +100,6 @@ Key files:
 
 Tested against =canonical-greekLit= (1,615 files). GitHub repo not yet
 created; local only at =/Users/wulfmanc/repos/gh/PerseusDLCode/perseus-tools=.
+
+* Sprints
+This section is for discussions about programming sprints.

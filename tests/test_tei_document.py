@@ -97,7 +97,45 @@ class TestURNExtraction:
         doc = TEIDocument.from_path(path)
         assert doc.metadata.urn == "urn:cts:latinLit:phi1017.phi007.perseus-lat2"
 
-    def test_empty_urn_when_no_edition_div(self, tmp_path):
+    def test_extracts_urn_from_translation_div(self, tmp_path):
+        """Translation files use type='translation', not type='edition'."""
+        body = """
+            <div type="translation" n="urn:cts:latinLit:phi0119.phi001.perseus-eng2">
+              <p>text</p>
+            </div>
+        """
+        path = write_tei(tmp_path, make_tei(body))
+        doc = TEIDocument.from_path(path)
+        assert doc.metadata.urn == "urn:cts:latinLit:phi0119.phi001.perseus-eng2"
+
+    def test_does_not_return_cts_sentinel_from_refs_decl(self, tmp_path):
+        """refsDecl[@n='CTS'] must not produce the string 'CTS' as a URN."""
+        xml = textwrap.dedent("""\
+            <?xml version="1.0" encoding="UTF-8"?>
+            <TEI xmlns="http://www.tei-c.org/ns/1.0">
+              <teiHeader>
+                <fileDesc>
+                  <titleStmt>
+                    <title>Test</title><author>Author</author>
+                  </titleStmt>
+                  <publicationStmt><p>Test</p></publicationStmt>
+                  <sourceDesc><p>Test</p></sourceDesc>
+                </fileDesc>
+                <encodingDesc>
+                  <refsDecl n="CTS">
+                    <cRefPattern n="line" matchPattern="(\\w+)"
+                      replacementPattern="#xpath(//l[@n='$1'])"/>
+                  </refsDecl>
+                </encodingDesc>
+              </teiHeader>
+              <text><body><p>text</p></body></text>
+            </TEI>
+        """)
+        path = write_tei(tmp_path, xml)
+        doc = TEIDocument.from_path(path)
+        assert doc.metadata.urn != "CTS"
+
+    def test_empty_urn_when_no_cts_div(self, tmp_path):
         path = write_tei(tmp_path, make_tei("<p>text</p>"))
         doc = TEIDocument.from_path(path)
         assert doc.metadata.urn == ""
@@ -370,3 +408,36 @@ class TestCorpusFileInvariants:
 
     def test_source_path_matches(self, doc):
         assert doc.metadata.source_path == doc.path
+
+
+# ---------------------------------------------------------------------------
+# DTD parse robustness
+# ---------------------------------------------------------------------------
+
+class TestDTDDocument:
+    """Documents with DOCTYPE declarations (external SYSTEM identifiers)
+    must parse without raising, even when the referenced DTD file does
+    not exist on disk."""
+
+    DTD_FIXTURE = DATA_DIR / "dtd_entity_test.xml"
+
+    def test_loads_without_raising(self):
+        doc = TEIDocument.from_path(self.DTD_FIXTURE)
+        assert doc is not None
+
+    def test_metadata_fields_are_strings(self):
+        doc = TEIDocument.from_path(self.DTD_FIXTURE)
+        m = doc.metadata
+        assert isinstance(m.urn, str)
+        assert isinstance(m.title, str)
+        assert isinstance(m.author, str)
+        assert isinstance(m.language, str)
+        assert isinstance(m.text_type, str)
+        assert isinstance(m.chunk_unit, str)
+
+    def test_extracts_expected_metadata(self):
+        doc = TEIDocument.from_path(self.DTD_FIXTURE)
+        assert doc.metadata.title == "Epistulae ad Atticum"
+        assert doc.metadata.author == "Cicero"
+        assert doc.metadata.language == "lat"
+        assert doc.metadata.urn == "urn:cts:latinLit:phi0474.phi057.perseus-lat2"

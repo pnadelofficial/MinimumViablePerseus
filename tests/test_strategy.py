@@ -7,10 +7,6 @@
 #   2. Unit tests for StrategySelector.select() — strategy selection logic
 #   3. Integration tests against known corpus files in tests/data/
 #
-# NOTE on DivisionStrategy.xslt_stylesheet: that property is not yet
-# implemented (raises NotImplementedError).  Tests here cover describes()
-# only; xslt_stylesheet will be tested once the XSLT is written.
-#
 # NOTE on StrategySelector._STRATEGIES: the current implementation uses
 # a class-level list of pre-constructed instances.  Tests use the public
 # select() interface throughout; they do not depend on the internal
@@ -60,10 +56,46 @@ def make_tei(body: str) -> str:
     """)
 
 
+def make_tei_with_hint(body: str, hint_unit: str) -> str:
+    """Return a minimal TEI document with a <refState n='chunk'> hint."""
+    return textwrap.dedent(f"""\
+        <TEI xmlns="http://www.tei-c.org/ns/1.0">
+          <teiHeader>
+            <fileDesc>
+              <titleStmt>
+                <title>Test</title><author>Test</author>
+              </titleStmt>
+              <publicationStmt><p>Test</p></publicationStmt>
+              <sourceDesc><p>Test</p></sourceDesc>
+            </fileDesc>
+            <encodingDesc>
+              <refsDecl>
+                <refState unit="work"/>
+                <refState unit="{hint_unit}" n="chunk"/>
+              </refsDecl>
+            </encodingDesc>
+          </teiHeader>
+          <text xml:lang="lat">
+            <body>
+              {body}
+            </body>
+          </text>
+        </TEI>
+    """)
+
+
 def write_doc(tmp_path: Path, body: str) -> TEIDocument:
     """Write a minimal TEI document with body and return a TEIDocument."""
     p = tmp_path / "test.xml"
     p.write_text(make_tei(body), encoding="utf-8")
+    return TEIDocument.from_path(p)
+
+
+def write_doc_with_hint(tmp_path: Path, body: str,
+                        hint_unit: str) -> TEIDocument:
+    """Write a TEI document with a refState chunk hint."""
+    p = tmp_path / "test_hint.xml"
+    p.write_text(make_tei_with_hint(body, hint_unit), encoding="utf-8")
     return TEIDocument.from_path(p)
 
 
@@ -100,6 +132,17 @@ TEXTPART_DIVS_ONLY = """\
       </div>
       <div type="textpart" subtype="episode">
         <l n="3">line three</l>
+      </div>
+    </div>
+"""
+
+CHAPTER_DIVS_ONLY = """\
+    <div type="edition" n="urn:cts:latinLit:phi2331.phi013.test">
+      <div type="textpart" subtype="chapter" n="1">
+        <p><milestone unit="section" n="1"/>first section of chapter one.</p>
+      </div>
+      <div type="textpart" subtype="chapter" n="2">
+        <p><milestone unit="section" n="1"/>first section of chapter two.</p>
       </div>
     </div>
 """
@@ -174,19 +217,29 @@ class TestDivisionStrategyDescribes:
         doc = write_doc(tmp_path, FEATURELESS)
         assert not DivisionStrategy(div_type="textpart").describes(doc)
 
-    def test_chunk_unit_reflects_constructor_argument(self):
+    def test_chunk_unit_reflects_div_type_when_no_subtype(self):
         assert DivisionStrategy(div_type="textpart").chunk_unit == "textpart"
         assert DivisionStrategy(div_type="book").chunk_unit == "book"
 
-    def test_xslt_stylesheet_raises_not_implemented(self, tmp_path):
-        """DivisionStrategy.xslt_stylesheet is not yet implemented.
+    def test_chunk_unit_reflects_subtype_when_given(self):
+        assert DivisionStrategy(div_type="textpart",
+                                subtype="chapter").chunk_unit == "chapter"
+        assert DivisionStrategy(div_type="textpart",
+                                subtype="scene").chunk_unit == "scene"
 
-        This test documents that fact and will fail (intentionally) once
-        the XSLT is written -- at which point it should be replaced with
-        a positive assertion.
-        """
-        with pytest.raises(NotImplementedError):
-            _ = DivisionStrategy(div_type="textpart").xslt_stylesheet
+    def test_subtype_filter_matches_chapter_divs(self, tmp_path):
+        doc = write_doc(tmp_path, CHAPTER_DIVS_ONLY)
+        assert DivisionStrategy(div_type="textpart",
+                                subtype="chapter").describes(doc)
+
+    def test_subtype_filter_does_not_match_wrong_subtype(self, tmp_path):
+        doc = write_doc(tmp_path, CHAPTER_DIVS_ONLY)
+        assert not DivisionStrategy(div_type="textpart",
+                                    subtype="scene").describes(doc)
+
+    def test_xslt_stylesheet_returns_generate_div_chunks(self):
+        assert DivisionStrategy(div_type="textpart").xslt_stylesheet == \
+            "generate_div_chunks.xsl"
 
 
 class TestChunkingStrategyIsAbstract:
@@ -224,17 +277,40 @@ class TestStrategySelectorSelect:
         assert isinstance(strategy, MilestoneStrategy)
         assert strategy.chunk_unit == "line"
 
-    def test_selects_division_strategy_for_textpart(self, tmp_path, selector):
+    def test_selects_division_strategy_for_textpart_only_document(
+            self, tmp_path, selector):
         doc = write_doc(tmp_path, TEXTPART_DIVS_ONLY)
         strategy = selector.select(doc)
         assert isinstance(strategy, DivisionStrategy)
         assert strategy.chunk_unit == "textpart"
 
-    def test_selects_division_strategy_for_book(self, tmp_path, selector):
+    def test_selects_division_strategy_for_book_div_only_document(
+            self, tmp_path, selector):
         doc = write_doc(tmp_path, BOOK_DIVS_ONLY)
         strategy = selector.select(doc)
         assert isinstance(strategy, DivisionStrategy)
         assert strategy.chunk_unit == "book"
+
+    def test_hint_overrides_section_milestone(self, tmp_path, selector):
+        """A chapter hint causes DivisionStrategy to win over section milestones."""
+        doc = write_doc_with_hint(tmp_path, CHAPTER_DIVS_ONLY, hint_unit="chapter")
+        strategy = selector.select(doc)
+        assert isinstance(strategy, DivisionStrategy)
+        assert strategy.chunk_unit == "chapter"
+
+    def test_hint_card_selects_card_milestone(self, tmp_path, selector):
+        """A card hint selects MilestoneStrategy(card) when card milestones exist."""
+        doc = write_doc_with_hint(tmp_path, CARD_MILESTONES, hint_unit="card")
+        strategy = selector.select(doc)
+        assert isinstance(strategy, MilestoneStrategy)
+        assert strategy.chunk_unit == "card"
+
+    def test_no_hint_falls_back_to_ordered_list(self, tmp_path, selector):
+        """Without a hint, section milestones win over chapter divs."""
+        doc = write_doc(tmp_path, CHAPTER_DIVS_ONLY)
+        strategy = selector.select(doc)
+        assert isinstance(strategy, MilestoneStrategy)
+        assert strategy.chunk_unit == "section"
 
     def test_raises_for_featureless_document(self, tmp_path, selector):
         doc = write_doc(tmp_path, FEATURELESS)
@@ -317,17 +393,10 @@ class TestStrategySelectorOnCorpusFixtures:
     def test_galen_gets_division_strategy(self, selector):
         """tlg0057.tlg069 -- Greek prose, Galenus verbatim revised encoding.
 
-        This file originates from the 1st1K project and was subsequently
-        revised by the Galenus verbatim project, which added div[@type='textpart']
-        structure (9 sections).  The milestone units present -- ed1page and
-        ed2page -- are purely bibliographic apparatus tracking page breaks in
-        two reference editions (Kuehn and likely Basel/Chartier).  They are
-        not structural chunking boundaries.
-
-        StrategySelector correctly returns DivisionStrategy(textpart): the
-        textpart divs are the actual document structure, and milestone
-        detection does not fire because neither ed1page nor ed2page is in
-        _STRATEGIES.
+        This file has div[@type='textpart'] structure (9 sections).  The
+        milestone units present -- ed1page and ed2page -- are bibliographic
+        apparatus, not chunking boundaries.  DivisionStrategy(textpart) is
+        the correct selection now that generate_div_chunks.xsl is implemented.
         """
         doc = TEIDocument.from_path(
             DATA_DIR / "tlg0057.tlg069.1st1K-grc1.xml"
@@ -335,3 +404,29 @@ class TestStrategySelectorOnCorpusFixtures:
         strategy = selector.select(doc)
         assert isinstance(strategy, DivisionStrategy)
         assert strategy.chunk_unit == "textpart"
+
+    def test_caracallus_gets_chapter_division_strategy(self, selector):
+        """phi2331.phi013 -- SHA Antoninus Caracallus.
+
+        Has <refState unit='chapter' n='chunk'> in the header and
+        div[@type='textpart'][@subtype='chapter'] in the body.  The hint
+        should steer selection to DivisionStrategy(textpart, subtype=chapter).
+        """
+        doc = TEIDocument.from_path(
+            DATA_DIR / "phi2331.phi013.perseus-lat2.xml"
+        )
+        strategy = selector.select(doc)
+        assert isinstance(strategy, DivisionStrategy)
+        assert strategy.chunk_unit == "chapter"
+
+    def test_caracallus_chunk_hint(self, selector):
+        doc = TEIDocument.from_path(
+            DATA_DIR / "phi2331.phi013.perseus-lat2.xml"
+        )
+        assert doc.chunk_hint() == "chapter"
+
+    def test_seneca_has_no_chunk_hint(self, selector):
+        doc = TEIDocument.from_path(
+            DATA_DIR / "phi1017.phi007.perseus-lat2.xml"
+        )
+        assert doc.chunk_hint() is None

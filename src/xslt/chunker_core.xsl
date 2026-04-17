@@ -48,6 +48,29 @@
   </xsl:function>
 
   <!--
+    local:after-start($node, $start) → xs:boolean
+    True when $node should be included as the start of the current chunk.
+
+    • If $start is empty (no start filtering), always true.
+    • If $node comes after $start in document order, true.
+    • If $node IS an element that contains $start as a descendant (straddles
+      the start boundary), true — the template renders the element's open/close
+      tags and lets children suppress themselves individually via their own
+      local:after-start check.
+    • Otherwise (node precedes start and does not contain it), false.
+  -->
+  <xsl:function name="local:after-start" as="xs:boolean">
+    <xsl:param name="node"  as="node()"/>
+    <xsl:param name="start" as="node()?"/>
+    <xsl:sequence select="
+      empty($start)
+      or ($node >> $start)
+      or ($node instance of element()
+          and exists($start/ancestor::* intersect $node))
+    "/>
+  </xsl:function>
+
+  <!--
     local:extract-base-urn($root) → xs:string?
     Returns the CTS base URN from div[@type='edition']/@n, or empty sequence.
   -->
@@ -86,8 +109,9 @@
 
   <!-- Dramatic speech (tei:sp → div.speech) -->
   <xsl:template match="tei:sp" mode="chunk">
-    <xsl:param name="stop" tunnel="yes" as="node()?"/>
-    <xsl:if test="local:before-stop(., $stop)">
+    <xsl:param name="start" tunnel="yes" as="node()?"/>
+    <xsl:param name="stop"  tunnel="yes" as="node()?"/>
+    <xsl:if test="local:after-start(., $start) and local:before-stop(., $stop)">
       <div class="speech">
         <xsl:if test="@who">
           <xsl:attribute name="data-who" select="@who"/>
@@ -99,8 +123,9 @@
 
   <!-- Speaker label (tei:speaker → b.speaker) -->
   <xsl:template match="tei:speaker" mode="chunk">
-    <xsl:param name="stop" tunnel="yes" as="node()?"/>
-    <xsl:if test="local:before-stop(., $stop)">
+    <xsl:param name="start" tunnel="yes" as="node()?"/>
+    <xsl:param name="stop"  tunnel="yes" as="node()?"/>
+    <xsl:if test="local:after-start(., $start) and local:before-stop(., $stop)">
       <b class="speaker"><xsl:apply-templates mode="chunk"/></b>
     </xsl:if>
   </xsl:template>
@@ -112,9 +137,10 @@
     the document, avoiding duplicate ids for split lines.
   -->
   <xsl:template match="tei:l" mode="chunk">
+    <xsl:param name="start"    tunnel="yes" as="node()?"/>
     <xsl:param name="stop"     tunnel="yes" as="node()?"/>
     <xsl:param name="base-urn" tunnel="yes" as="xs:string?"/>
-    <xsl:if test="local:before-stop(., $stop)">
+    <xsl:if test="local:after-start(., $start) and local:before-stop(., $stop)">
       <p class="line" data-n="{@n}">
         <xsl:if test="exists($base-urn)">
           <xsl:attribute name="data-cts-urn" select="concat($base-urn, ':', @n)"/>
@@ -129,40 +155,45 @@
 
   <!-- Generic paragraph (tei:p → p) -->
   <xsl:template match="tei:p" mode="chunk">
-    <xsl:param name="stop" tunnel="yes" as="node()?"/>
-    <xsl:if test="local:before-stop(., $stop)">
+    <xsl:param name="start" tunnel="yes" as="node()?"/>
+    <xsl:param name="stop"  tunnel="yes" as="node()?"/>
+    <xsl:if test="local:after-start(., $start) and local:before-stop(., $stop)">
       <p><xsl:apply-templates mode="chunk"/></p>
     </xsl:if>
   </xsl:template>
 
   <!-- Generic division (tei:div → div) -->
   <xsl:template match="tei:div" mode="chunk">
-    <xsl:param name="stop" tunnel="yes" as="node()?"/>
-    <xsl:if test="local:before-stop(., $stop)">
+    <xsl:param name="start" tunnel="yes" as="node()?"/>
+    <xsl:param name="stop"  tunnel="yes" as="node()?"/>
+    <xsl:if test="local:after-start(., $start) and local:before-stop(., $stop)">
       <div><xsl:apply-templates mode="chunk"/></div>
     </xsl:if>
   </xsl:template>
 
   <!-- Emphasis (tei:emph → em) -->
   <xsl:template match="tei:emph" mode="chunk">
-    <xsl:param name="stop" tunnel="yes" as="node()?"/>
-    <xsl:if test="local:before-stop(., $stop)">
+    <xsl:param name="start" tunnel="yes" as="node()?"/>
+    <xsl:param name="stop"  tunnel="yes" as="node()?"/>
+    <xsl:if test="local:after-start(., $start) and local:before-stop(., $stop)">
       <em><xsl:apply-templates mode="chunk"/></em>
     </xsl:if>
   </xsl:template>
 
   <!-- Inline note (tei:note → span.note) -->
   <xsl:template match="tei:note" mode="chunk">
-    <xsl:param name="stop" tunnel="yes" as="node()?"/>
-    <xsl:if test="local:before-stop(., $stop)">
+    <xsl:param name="start" tunnel="yes" as="node()?"/>
+    <xsl:param name="stop"  tunnel="yes" as="node()?"/>
+    <xsl:if test="local:after-start(., $start) and local:before-stop(., $stop)">
       <span class="note"><xsl:apply-templates mode="chunk"/></span>
     </xsl:if>
   </xsl:template>
 
   <!-- Editorial gap (tei:gap → span.gap with dagger marker) -->
   <xsl:template match="tei:gap" mode="chunk">
-    <xsl:param name="stop" tunnel="yes" as="node()?"/>
-    <xsl:if test="local:before-stop(., $stop)">
+    <xsl:param name="start" tunnel="yes" as="node()?"/>
+    <xsl:param name="stop"  tunnel="yes" as="node()?"/>
+    <xsl:if test="local:after-start(., $start) and local:before-stop(., $stop)">
       <span class="gap">&#x2020;</span>
     </xsl:if>
   </xsl:template>
@@ -173,10 +204,128 @@
        by the text() template below. -->
   <xsl:template match="tei:pb | tei:milestone" mode="chunk"/>
 
-  <!-- Text nodes: copy only when before the stop. -->
+  <!-- Section heading (tei:head → h2) -->
+  <xsl:template match="tei:head" mode="chunk">
+    <xsl:param name="start" tunnel="yes" as="node()?"/>
+    <xsl:param name="stop"  tunnel="yes" as="node()?"/>
+    <xsl:if test="local:after-start(., $start) and local:before-stop(., $stop)">
+      <h2><xsl:apply-templates mode="chunk"/></h2>
+    </xsl:if>
+  </xsl:template>
+
+  <!-- Block quotation (tei:quote → blockquote) -->
+  <xsl:template match="tei:quote" mode="chunk">
+    <xsl:param name="start" tunnel="yes" as="node()?"/>
+    <xsl:param name="stop"  tunnel="yes" as="node()?"/>
+    <xsl:if test="local:after-start(., $start) and local:before-stop(., $stop)">
+      <blockquote><xsl:apply-templates mode="chunk"/></blockquote>
+    </xsl:if>
+  </xsl:template>
+
+  <!-- Citation with quotation (tei:cit → blockquote.cit) -->
+  <xsl:template match="tei:cit" mode="chunk">
+    <xsl:param name="start" tunnel="yes" as="node()?"/>
+    <xsl:param name="stop"  tunnel="yes" as="node()?"/>
+    <xsl:if test="local:after-start(., $start) and local:before-stop(., $stop)">
+      <blockquote class="cit"><xsl:apply-templates mode="chunk"/></blockquote>
+    </xsl:if>
+  </xsl:template>
+
+  <!-- Foreign-language span (tei:foreign → span[lang]) -->
+  <xsl:template match="tei:foreign" mode="chunk">
+    <xsl:param name="start" tunnel="yes" as="node()?"/>
+    <xsl:param name="stop"  tunnel="yes" as="node()?"/>
+    <xsl:if test="local:after-start(., $start) and local:before-stop(., $stop)">
+      <span>
+        <xsl:if test="@xml:lang">
+          <xsl:attribute name="lang" select="@xml:lang"/>
+        </xsl:if>
+        <xsl:apply-templates mode="chunk"/>
+      </span>
+    </xsl:if>
+  </xsl:template>
+
+  <!-- Highlighted text (tei:hi → em for italic, otherwise span.hi) -->
+  <xsl:template match="tei:hi" mode="chunk">
+    <xsl:param name="start" tunnel="yes" as="node()?"/>
+    <xsl:param name="stop"  tunnel="yes" as="node()?"/>
+    <xsl:if test="local:after-start(., $start) and local:before-stop(., $stop)">
+      <xsl:choose>
+        <xsl:when test="@rend = 'ital' or @rend = 'italic'">
+          <em><xsl:apply-templates mode="chunk"/></em>
+        </xsl:when>
+        <xsl:when test="@rend = 'bold'">
+          <strong><xsl:apply-templates mode="chunk"/></strong>
+        </xsl:when>
+        <xsl:otherwise>
+          <span class="hi"><xsl:apply-templates mode="chunk"/></span>
+        </xsl:otherwise>
+      </xsl:choose>
+    </xsl:if>
+  </xsl:template>
+
+  <!-- Editorial supplement (tei:supplied → span.supplied) -->
+  <xsl:template match="tei:supplied" mode="chunk">
+    <xsl:param name="start" tunnel="yes" as="node()?"/>
+    <xsl:param name="stop"  tunnel="yes" as="node()?"/>
+    <xsl:if test="local:after-start(., $start) and local:before-stop(., $stop)">
+      <span class="supplied"><xsl:apply-templates mode="chunk"/></span>
+    </xsl:if>
+  </xsl:template>
+
+  <!-- Editorial deletion (tei:del → del) -->
+  <xsl:template match="tei:del" mode="chunk">
+    <xsl:param name="start" tunnel="yes" as="node()?"/>
+    <xsl:param name="stop"  tunnel="yes" as="node()?"/>
+    <xsl:if test="local:after-start(., $start) and local:before-stop(., $stop)">
+      <del><xsl:apply-templates mode="chunk"/></del>
+    </xsl:if>
+  </xsl:template>
+
+  <!-- Editorial addition (tei:add → span.add) -->
+  <xsl:template match="tei:add" mode="chunk">
+    <xsl:param name="start" tunnel="yes" as="node()?"/>
+    <xsl:param name="stop"  tunnel="yes" as="node()?"/>
+    <xsl:if test="local:after-start(., $start) and local:before-stop(., $stop)">
+      <span class="add"><xsl:apply-templates mode="chunk"/></span>
+    </xsl:if>
+  </xsl:template>
+
+  <!-- Line break within prose (tei:lb → br) -->
+  <xsl:template match="tei:lb" mode="chunk">
+    <xsl:param name="start" tunnel="yes" as="node()?"/>
+    <xsl:param name="stop"  tunnel="yes" as="node()?"/>
+    <xsl:if test="local:after-start(., $start) and local:before-stop(., $stop)">
+      <br/>
+    </xsl:if>
+  </xsl:template>
+
+  <!-- Unclear reading (tei:unclear → span.unclear) -->
+  <xsl:template match="tei:unclear" mode="chunk">
+    <xsl:param name="start" tunnel="yes" as="node()?"/>
+    <xsl:param name="stop"  tunnel="yes" as="node()?"/>
+    <xsl:if test="local:after-start(., $start) and local:before-stop(., $stop)">
+      <span class="unclear"><xsl:apply-templates mode="chunk"/></span>
+    </xsl:if>
+  </xsl:template>
+
+  <!-- Catch-all: unrecognized elements fall through to their text content.
+       This prevents silent content loss when encountering TEI elements not
+       yet mapped to HTML equivalents.  Named templates above take
+       precedence; this template fires only for everything else. -->
+  <xsl:template match="*" mode="chunk">
+    <xsl:param name="start" tunnel="yes" as="node()?"/>
+    <xsl:param name="stop"  tunnel="yes" as="node()?"/>
+    <xsl:if test="local:after-start(., $start) and local:before-stop(., $stop)">
+      <xsl:apply-templates mode="chunk"/>
+    </xsl:if>
+  </xsl:template>
+
+  <!-- Text nodes: copy only when within the start/stop range. -->
   <xsl:template match="text()" mode="chunk">
-    <xsl:param name="stop" tunnel="yes" as="node()?"/>
-    <xsl:if test="local:before-stop(., $stop)">
+    <xsl:param name="start" tunnel="yes" as="node()?"/>
+    <xsl:param name="stop"  tunnel="yes" as="node()?"/>
+    <xsl:if test="local:after-start(., $start) and local:before-stop(., $stop)">
       <xsl:copy/>
     </xsl:if>
   </xsl:template>

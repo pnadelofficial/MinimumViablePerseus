@@ -36,8 +36,9 @@
        Parameters
        ============================================================ -->
 
-  <xsl:param name="chunk-unit" as="xs:string" select="'card'"/>
-  <xsl:param name="output-dir" as="xs:string" select="'.'"/>
+  <xsl:param name="chunk-unit"  as="xs:string" select="'card'"/>
+  <xsl:param name="output-dir"  as="xs:string" select="'.'"/>
+  <xsl:param name="catalog-url" as="xs:string" select="'/index.html'"/>
 
 
   <!-- ============================================================
@@ -91,19 +92,33 @@
         then  //element()[. &gt;&gt; $ms]
         else  //element()[. &gt;&gt; $ms][. &lt;&lt; $ms-next]
       "/>
-      <!-- Top-level subset: elements with no ancestor also in $hits -->
-      <xsl:variable name="top"
-        select="$hits[not(ancestor::* intersect $hits)]"/>
+      <!-- Top-level subset: elements with no ancestor also in $hits.
+           When $hits is empty the milestones are inline (inside paragraphs
+           rather than between block elements).  Fall back to the body's
+           direct children and rely on the $start tunnel parameter in
+           chunker_core to suppress content that precedes $ms. -->
+      <xsl:variable name="top" as="element()*" select="
+        if (exists($hits))
+        then $hits[not(ancestor::* intersect $hits)]
+        else (//tei:body, //tei:text)[1]/child::*
+      "/>
 
       <xsl:variable name="cts-range"
         select="local:chunk-cts-range($top, $ms-next, $base-urn)"/>
 
+      <!-- Use position() for filenames so they are globally unique even
+           when @n values restart across structural divisions (e.g. card 1
+           in Book 1 and card 1 in Book 2 of the Iliad).  The semantic @n
+           value is preserved in the HTML title and the index.json manifest. -->
+      <xsl:variable name="pos"       select="position()"/>
+      <xsl:variable name="pos-prev"  select="$pos - 1"/>
+      <xsl:variable name="pos-next"  select="if ($ms-next) then $pos + 1 else ()"/>
       <xsl:variable name="file-name"
-        select="concat($chunk-unit, '_', @n, '.html')"/>
+        select="concat($chunk-unit, '_', $pos, '.html')"/>
       <xsl:variable name="prev-file"
-        select="if ($ms-prev) then concat($chunk-unit, '_', $ms-prev/@n, '.html') else ()"/>
+        select="if ($ms-prev) then concat($chunk-unit, '_', $pos-prev, '.html') else ()"/>
       <xsl:variable name="next-file"
-        select="if ($ms-next) then concat($chunk-unit, '_', $ms-next/@n, '.html') else ()"/>
+        select="if ($ms-next) then concat($chunk-unit, '_', $pos-next, '.html') else ()"/>
 
       <!-- ── Write the chunk HTML file ── -->
       <xsl:result-document
@@ -138,6 +153,7 @@ h1           { font-size: 1em; color: #555; margin-bottom: .25em }
           </head>
           <body>
             <nav>
+              <a href="{$catalog-url}">&#x2190; Catalog</a>
               <xsl:if test="exists($prev-file)">
                 <a href="{$prev-file}">&#x2190; prev</a>
               </xsl:if>
@@ -151,8 +167,9 @@ h1           { font-size: 1em; color: #555; margin-bottom: .25em }
                 else concat($work-title, ' — ', $chunk-unit, ' ', @n)
               "/>
             </h1>
-            <!-- Single-pass transform: templates check $stop themselves -->
+            <!-- Single-pass transform: templates check $start/$stop themselves -->
             <xsl:apply-templates select="$top" mode="chunk">
+              <xsl:with-param name="start"    select="$ms"      tunnel="yes"/>
               <xsl:with-param name="stop"     select="$ms-next" tunnel="yes"/>
               <xsl:with-param name="base-urn" select="$base-urn" tunnel="yes"/>
             </xsl:apply-templates>

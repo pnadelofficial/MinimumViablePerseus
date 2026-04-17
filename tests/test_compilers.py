@@ -18,13 +18,16 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from mvp.compilers import CatalogCompiler, CompilationError, PageCompiler
+from mvp.document import TEIDocument
 from mvp.models import TEIMetadata
+from mvp.site_map import SiteMap
 from mvp.strategy import MilestoneStrategy
 
 # ---------------------------------------------------------------------------
@@ -174,7 +177,7 @@ class TestPageCompilerCompile:
                                                          mock_saxon):
         mock_cls, mock_proc = mock_saxon
         mock_proc.new_xslt30_processor().compile_stylesheet(
-        ).transform_to_file.side_effect = RuntimeError("Saxon exploded")
+        ).transform_to_string.side_effect = RuntimeError("Saxon exploded")
 
         compiler = PageCompiler(strategy=card_strategy, xslt_root=tmp_path)
 
@@ -190,7 +193,7 @@ class TestPageCompilerCompile:
                                                       mock_saxon):
         mock_cls, mock_proc = mock_saxon
         mock_proc.new_xslt30_processor().compile_stylesheet(
-        ).transform_to_file.side_effect = RuntimeError("oops")
+        ).transform_to_string.side_effect = RuntimeError("oops")
 
         compiler = PageCompiler(strategy=card_strategy, xslt_root=tmp_path)
 
@@ -204,46 +207,210 @@ class TestPageCompilerCompile:
 # CatalogCompiler
 # ---------------------------------------------------------------------------
 
-class TestCatalogCompiler:
-
-    @pytest.mark.xfail(
-        reason="CatalogCompiler.compile() is not yet implemented; "
-               "template engine selection is pending.",
-        raises=NotImplementedError,
-        strict=True,
+def make_entry(urn: str, title: str = "Test Title", author: str = "Test Author",
+               language: str = "lat") -> TEIMetadata:
+    return TEIMetadata(
+        urn=urn,
+        title=title,
+        author=author,
+        language=language,
+        text_type="prose",
+        chunk_unit="section",
+        source_path=Path(f"/fake/{urn}.xml"),
     )
-    def test_compile_raises_not_implemented(self, tmp_path):
-        """CatalogCompiler.compile() is a stub.
 
-        This test documents that fact.  strict=True ensures the suite
-        fails loudly if compile() is implemented without this test being
-        updated to assert correct behaviour.
-        """
-        compiler = CatalogCompiler(template_path=tmp_path / "template.html")
-        compiler.compile(entries=[], output_path=tmp_path / "catalog")
+
+class TestCatalogCompilerConstruction:
 
     def test_construction_does_not_raise(self, tmp_path):
-        """CatalogCompiler can be constructed even though compile() is stubbed."""
-        compiler = CatalogCompiler(template_path=tmp_path / "template.html")
+        site_map = SiteMap(tmp_path)
+        compiler = CatalogCompiler(site_map=site_map)
         assert compiler is not None
 
 
+class TestCatalogCompilerCompile:
+
+    def test_creates_html_file(self, tmp_path):
+        site_map = SiteMap(tmp_path / "output")
+        compiler = CatalogCompiler(site_map=site_map)
+        entry = make_entry("urn:cts:latinLit:phi1017.phi007.perseus-lat2")
+        output_path = tmp_path / "catalog" / "lat.html"
+        compiler.compile([entry], output_path)
+        assert output_path.exists()
+
+    def test_html_contains_title_and_author(self, tmp_path):
+        site_map = SiteMap(tmp_path / "output")
+        compiler = CatalogCompiler(site_map=site_map)
+        entry = make_entry(
+            "urn:cts:latinLit:phi1017.phi007.perseus-lat2",
+            title="Agamemnon",
+            author="Seneca",
+        )
+        output_path = tmp_path / "catalog" / "lat.html"
+        compiler.compile([entry], output_path)
+        html = output_path.read_text(encoding="utf-8")
+        assert "Agamemnon" in html
+        assert "Seneca" in html
+
+    def test_links_to_first_chunk_when_manifest_exists(self, tmp_path):
+        site_map = SiteMap(tmp_path / "output")
+        urn = "urn:cts:latinLit:phi1017.phi007.perseus-lat2"
+
+        # Write a real index.json so CatalogCompiler can find the first chunk.
+        chunk_dir = site_map.chunk_dir(urn)
+        manifest = {
+            "base_urn": urn,
+            "title": "Agamemnon",
+            "chunks": [{"n": "1", "file": "card_1.html", "urn": ""}],
+        }
+        (chunk_dir / "index.json").write_text(
+            json.dumps(manifest), encoding="utf-8"
+        )
+
+        compiler = CatalogCompiler(site_map=site_map)
+        entry = make_entry(urn, title="Agamemnon", author="Seneca")
+        output_path = tmp_path / "catalog" / "lat.html"
+        compiler.compile([entry], output_path)
+
+        html = output_path.read_text(encoding="utf-8")
+        assert "card_1.html" in html
+        assert 'href="' in html
+
+    def test_graceful_when_manifest_missing(self, tmp_path):
+        site_map = SiteMap(tmp_path / "output")
+        compiler = CatalogCompiler(site_map=site_map)
+        entry = make_entry("urn:cts:latinLit:phi1017.phi007.perseus-lat2",
+                           title="Agamemnon")
+        output_path = tmp_path / "catalog" / "lat.html"
+        # No index.json exists — must not raise.
+        compiler.compile([entry], output_path)
+        html = output_path.read_text(encoding="utf-8")
+        assert "Agamemnon" in html
+
+    def test_empty_entries_writes_nothing(self, tmp_path):
+        site_map = SiteMap(tmp_path / "output")
+        compiler = CatalogCompiler(site_map=site_map)
+        output_path = tmp_path / "catalog" / "lat.html"
+        compiler.compile([], output_path)
+        assert not output_path.exists()
+
+    def test_entries_sorted_by_author_then_title(self, tmp_path):
+        site_map = SiteMap(tmp_path / "output")
+        compiler = CatalogCompiler(site_map=site_map)
+        entries = [
+            make_entry("urn:cts:latinLit:phi0003.phi001.test", title="Odes",
+                       author="Horace"),
+            make_entry("urn:cts:latinLit:phi0003.phi002.test", title="Aeneid",
+                       author="Virgil"),
+            make_entry("urn:cts:latinLit:phi0003.phi003.test", title="Amores",
+                       author="Ovid"),
+        ]
+        output_path = tmp_path / "catalog" / "lat.html"
+        compiler.compile(entries, output_path)
+        html = output_path.read_text(encoding="utf-8")
+        # Horace comes before Ovid, Ovid before Virgil
+        assert html.index("Horace") < html.index("Ovid") < html.index("Virgil")
+
+
+class TestCatalogCompilerIndex:
+
+    def test_compile_index_creates_root_file(self, tmp_path):
+        site_map = SiteMap(tmp_path / "output")
+        compiler = CatalogCompiler(site_map=site_map)
+        languages = {
+            "lat": [make_entry("urn:cts:latinLit:phi1017.phi007.test")],
+        }
+        output_path = tmp_path / "index.html"
+        compiler.compile_index(languages, output_path)
+        assert output_path.exists()
+
+    def test_compile_index_links_to_language_catalogs(self, tmp_path):
+        site_map = SiteMap(tmp_path / "output")
+        compiler = CatalogCompiler(site_map=site_map)
+        languages = {
+            "lat": [make_entry("urn:cts:latinLit:phi1017.phi007.test")],
+            "grc": [make_entry("urn:cts:greekLit:tlg0011.tlg001.test",
+                               language="grc")],
+        }
+        output_path = tmp_path / "index.html"
+        compiler.compile_index(languages, output_path)
+        html = output_path.read_text(encoding="utf-8")
+        assert "/catalog/lat.html" in html
+        assert "/catalog/grc.html" in html
+        assert "Latin" in html
+        assert "Greek" in html
+
+
 # ---------------------------------------------------------------------------
-# TODO: PageCompiler integration tests
-#
-# An integration test suite should be added here once the XSLT stylesheets
-# are stable.  Each test should:
-#   1. Run PageCompiler.compile() against a real corpus fixture using the
-#      real Saxon processor and the real XSLT.
-#   2. Assert that the expected HTML chunk files and index.json were created.
-#   3. Spot-check the content of at least one chunk file.
-#
-# These tests will be slow and should be marked @pytest.mark.slow so they
-# can be excluded from the fast unit-test run:
-#
-#   @pytest.mark.slow
-#   def test_seneca_produces_expected_chunks(tmp_path):
-#       ...
-#
-# Add 'slow' to the markers list in pyproject.toml when implementing.
+# PageCompiler integration tests (require real Saxon + XSLT)
 # ---------------------------------------------------------------------------
+
+XSLT_ROOT = Path(__file__).parent.parent / "src" / "xslt"
+DTD_FIXTURE_PATH = DATA_DIR / "dtd_entity_test.xml"
+
+
+@pytest.mark.slow
+class TestPageCompilerIntegration:
+    """Run real Saxon transformations against fixture files.
+
+    These tests are slow (Saxon JVM startup + full XSLT transform) and
+    are excluded from the default test run.  Run with:
+        pdm run test -m slow
+    """
+
+    def test_seneca_produces_chunks(self, tmp_path):
+        doc = TEIDocument.from_path(SENECA_PATH)
+        strategy = MilestoneStrategy(unit="card")
+        compiler = PageCompiler(strategy=strategy, xslt_root=XSLT_ROOT)
+        compiler.compile(doc, tmp_path)
+
+        assert (tmp_path / "card_1.html").exists(), \
+            "Expected card_1.html to be produced by the XSLT"
+        assert (tmp_path / "index.json").exists(), \
+            "Expected index.json manifest to be produced"
+        manifest = json.loads((tmp_path / "index.json").read_text())
+        assert "chunks" in manifest
+        assert len(manifest["chunks"]) > 0
+
+    def test_seneca_chunk_contains_html_structure(self, tmp_path):
+        doc = TEIDocument.from_path(SENECA_PATH)
+        strategy = MilestoneStrategy(unit="card")
+        compiler = PageCompiler(strategy=strategy, xslt_root=XSLT_ROOT)
+        compiler.compile(doc, tmp_path)
+
+        html = (tmp_path / "card_1.html").read_text(encoding="utf-8")
+        assert "<!DOCTYPE html>" in html or "<html" in html
+        assert "<nav" in html
+
+    def test_dtd_document_produces_chunks(self, tmp_path):
+        """Documents with DOCTYPE references compile after the DTD parser fix."""
+        doc = TEIDocument.from_path(DTD_FIXTURE_PATH)
+        strategy = MilestoneStrategy(unit="section")
+        compiler = PageCompiler(strategy=strategy, xslt_root=XSLT_ROOT)
+        compiler.compile(doc, tmp_path)
+
+        assert (tmp_path / "section_1.html").exists()
+        assert (tmp_path / "index.json").exists()
+        manifest = json.loads((tmp_path / "index.json").read_text())
+        assert len(manifest["chunks"]) == 2
+
+    def test_caracallus_produces_chapter_chunks(self, tmp_path):
+        """phi2331.phi013 -- SHA Antoninus Caracallus.
+
+        The refState hint selects DivisionStrategy(chapter), which uses
+        generate_div_chunks.xsl.  Expect one file per chapter (~11 chapters)
+        rather than one file per section (~100 sections).
+        """
+        from mvp.strategy import DivisionStrategy
+        doc = TEIDocument.from_path(DATA_DIR / "phi2331.phi013.perseus-lat2.xml")
+        strategy = DivisionStrategy(div_type="textpart", subtype="chapter")
+        compiler = PageCompiler(strategy=strategy, xslt_root=XSLT_ROOT)
+        compiler.compile(doc, tmp_path)
+
+        assert (tmp_path / "chapter_1.html").exists()
+        assert (tmp_path / "index.json").exists()
+        manifest = json.loads((tmp_path / "index.json").read_text())
+        assert len(manifest["chunks"]) == 11, \
+            "Expected 11 chapters in Antoninus Caracallus"
+        html = (tmp_path / "chapter_1.html").read_text(encoding="utf-8")
+        assert "<p>" in html, "Chapter 1 should contain paragraph content"

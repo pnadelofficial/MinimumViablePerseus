@@ -39,6 +39,7 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
 addopts = "--cov=mvp --cov-report=term-missing"
+markers = ["slow: marks tests as slow integration tests requiring Saxon (deselect with -m 'not slow')"]
 
 [tool.ruff]
 exclude = ["wiki/"]

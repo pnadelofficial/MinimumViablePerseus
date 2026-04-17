@@ -216,3 +216,7 @@ __marimo__/
 
 # Claude
 .claude/settings.local.json
+
+
+# Regeneratable output files
+html/
