@@ -80,30 +80,30 @@ class DivisionStrategy(ChunkingStrategy):
     """Chunk at <div type='{div_type}'> elements.
 
     Applies to texts structured as nested divisions rather than
-    milestone-delimited sections.  The Sophocles case (nested
-    div[@type='textpart'] elements) is the primary known instance.
+    milestone-delimited sections.  Optionally filters by @subtype so that
+    e.g. DivisionStrategy('textpart', subtype='chapter') matches only
+    chapter-level divs within a textpart hierarchy.
     """
 
-    def __init__(self, div_type: str = "textpart") -> None:
+    def __init__(self, div_type: str = "textpart",
+                 subtype: str | None = None) -> None:
         self._div_type = div_type
+        self._subtype = subtype
 
     @property
     def chunk_unit(self) -> str:
-        return self._div_type
+        return self._subtype if self._subtype else self._div_type
 
     @property
     def xslt_stylesheet(self) -> str:
-        # TODO: implement division-based XSLT stylesheet
-        raise NotImplementedError(
-            "DivisionStrategy XSLT stylesheet not yet implemented"
-        )
+        return "generate_div_chunks.xsl"
 
     def describes(self, doc: TEIDocument) -> bool:
         root = doc.tree.getroot()
-        div = root.find(
-            f".//tei:text//tei:div[@type='{self._div_type}']", NS
-        )
-        return div is not None
+        xpath = f".//tei:text//tei:div[@type='{self._div_type}']"
+        if self._subtype:
+            xpath += f"[@subtype='{self._subtype}']"
+        return root.find(xpath, NS) is not None
 
 
 class StrategySelector:
@@ -134,16 +134,25 @@ class StrategySelector:
     ]
 
     def select(self, doc: TEIDocument) -> ChunkingStrategy:
-        """Return the first strategy that describes doc and is fully implemented.
+        """Return the best strategy for doc.
 
-        A strategy that describes the document but whose xslt_stylesheet raises
-        NotImplementedError is silently skipped, so documents that match only
-        unimplemented strategies are treated as having no matching strategy.
+        Consults <refState n='chunk'> in the TEI header first; if a hint is
+        present, candidate strategies matching that unit are tried before
+        falling back to the ordered _STRATEGIES list.  Strategies whose
+        xslt_stylesheet raises NotImplementedError are silently skipped.
 
         Raises:
             ValueError: If no implemented strategy matches.
         """
-        for strategy in self._STRATEGIES:
+        hint = doc.chunk_hint()
+        candidates: list[ChunkingStrategy] = []
+        if hint:
+            candidates = [
+                MilestoneStrategy(unit=hint),
+                DivisionStrategy(div_type="textpart", subtype=hint),
+                DivisionStrategy(div_type=hint),
+            ]
+        for strategy in candidates + list(self._STRATEGIES):
             if strategy.describes(doc):
                 try:
                     _ = strategy.xslt_stylesheet
