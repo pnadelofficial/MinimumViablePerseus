@@ -45,16 +45,24 @@
     <xsl:variable name="base-urn"   select="local:extract-base-urn(.)"/>
     <xsl:variable name="work-title" select="string((//tei:titleStmt/tei:title)[1])"/>
 
-    <!-- Top-level divs matching chunk-unit via @subtype.
-         "Top-level" means not nested inside another matching div. -->
-    <xsl:variable name="chunks" as="element()*" select="
+    <!-- Top-level divs matching chunk-unit.
+         Try @subtype first (e.g. subtype="chapter"); fall back to @type
+         (e.g. type="textpart" or type="book") for encodings that do not
+         use @subtype.  "Top-level" means not nested inside another matching div. -->
+    <xsl:variable name="by-subtype" as="element()*" select="
       //tei:div[@subtype = $chunk-unit]
                [not(ancestor::tei:div[@subtype = $chunk-unit])]
+    "/>
+    <xsl:variable name="chunks" as="element()*" select="
+      if (exists($by-subtype)) then $by-subtype
+      else //tei:div[@type = $chunk-unit]
+                    [not(ancestor::tei:div[@type = $chunk-unit])]
     "/>
 
     <xsl:if test="empty($chunks)">
       <xsl:message terminate="yes">
-        No div elements found with subtype="<xsl:value-of select="$chunk-unit"/>".
+        No div elements found with subtype="<xsl:value-of select="$chunk-unit"/>"
+        or type="<xsl:value-of select="$chunk-unit"/>".
         Check the chunk-unit parameter.
       </xsl:message>
     </xsl:if>
