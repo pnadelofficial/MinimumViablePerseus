@@ -92,9 +92,16 @@
         then  //element()[. &gt;&gt; $ms]
         else  //element()[. &gt;&gt; $ms][. &lt;&lt; $ms-next]
       "/>
-      <!-- Top-level subset: elements with no ancestor also in $hits -->
-      <xsl:variable name="top"
-        select="$hits[not(ancestor::* intersect $hits)]"/>
+      <!-- Top-level subset: elements with no ancestor also in $hits.
+           When $hits is empty the milestones are inline (inside paragraphs
+           rather than between block elements).  Fall back to the body's
+           direct children and rely on the $start tunnel parameter in
+           chunker_core to suppress content that precedes $ms. -->
+      <xsl:variable name="top" as="element()*" select="
+        if (exists($hits))
+        then $hits[not(ancestor::* intersect $hits)]
+        else (//tei:body, //tei:text)[1]/child::*
+      "/>
 
       <xsl:variable name="cts-range"
         select="local:chunk-cts-range($top, $ms-next, $base-urn)"/>
@@ -160,8 +167,9 @@ h1           { font-size: 1em; color: #555; margin-bottom: .25em }
                 else concat($work-title, ' — ', $chunk-unit, ' ', @n)
               "/>
             </h1>
-            <!-- Single-pass transform: templates check $stop themselves -->
+            <!-- Single-pass transform: templates check $start/$stop themselves -->
             <xsl:apply-templates select="$top" mode="chunk">
+              <xsl:with-param name="start"    select="$ms"      tunnel="yes"/>
               <xsl:with-param name="stop"     select="$ms-next" tunnel="yes"/>
               <xsl:with-param name="base-urn" select="$base-urn" tunnel="yes"/>
             </xsl:apply-templates>
