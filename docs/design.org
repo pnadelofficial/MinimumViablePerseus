@@ -12,7 +12,7 @@ Perseus6 relies on external services to supplement its minimal capabilities with
 ** Processors
 Perseus6 includes several compilers:
 
-- a program that takes TEI-encoded XML documents and generates HTML pages that can be read without JavaScript
+- a program that takes TEI-encoded XML documents and generates HTML pages that can be read without JavaScript.
 
 - a program that compiles catalogs, citation tables, and other files that define links.
 
