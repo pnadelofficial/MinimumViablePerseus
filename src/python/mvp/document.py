@@ -62,13 +62,33 @@ _ISO_639_1_TO_3: dict[str, str] = {
 }
 
 
+# Non-standard language identifiers found in the Perseus corpus that are
+# not valid ISO codes.  Mapped to their canonical ISO 639-3 equivalents.
+_NONSTANDARD_LANG: dict[str, str] = {
+    "greek":   "grc",
+    "latin":   "lat",
+    "english": "eng",
+    "german":  "deu",
+    "french":  "fra",
+    "arabic":  "ara",
+    # ISO 639-2/B (bibliographic) codes used by 1st1K and older encodings
+    "ger": "deu",
+    "fre": "fra",
+}
+
+
 def normalize_lang(code: str) -> str:
     """Normalize a language code to ISO 639-3 (3-letter form).
 
-    ISO 639-1 (2-letter) codes are mapped to their ISO 639-3 equivalents
-    using the SIL registration authority table.  Unknown or already-3-letter
-    codes are returned unchanged.
+    Handles (in order):
+    - Lowercasing: 'Grc' → 'grc'
+    - Known non-standard identifiers: 'greek' → 'grc', 'ger' → 'deu'
+    - ISO 639-1 (2-letter): 'de' → 'deu'
+    - Already-canonical 3-letter codes: returned unchanged
     """
+    code = code.lower()
+    if code in _NONSTANDARD_LANG:
+        return _NONSTANDARD_LANG[code]
     if len(code) == 2:
         return _ISO_639_1_TO_3.get(code, code)
     return code
