@@ -28,6 +28,11 @@ _LANGUAGE_NAMES: dict[str, str] = {
     "eng": "English",
     "ara": "Arabic",
     "per": "Persian",
+    "deu": "German",
+    "fra": "French",
+    "ita": "Italian",
+    "spa": "Spanish",
+    "rus": "Russian",
 }
 
 _CATALOG_CSS = """
