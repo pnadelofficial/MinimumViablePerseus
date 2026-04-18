@@ -101,5 +101,77 @@ Key files:
 Tested against =canonical-greekLit= (1,615 files). GitHub repo not yet
 created; local only at =/Users/wulfmanc/repos/gh/PerseusDLCode/perseus-tools=.
 
+
+* Improving Chunking Strategies
+The current implementation works for our first iteration, but it now needs to be generalized.
+
+1. Xslt_stylesheet values are hard-coded in xslt_stylesheet properties: one for chunking by div, one for chunking by milestone.  Will chunking strategy ever vary depending on other TEI document properties?
+
+2. We've already mentioned P4's multiple-chunking feature: users could choose to chunk by, say, book, or by chapters within a book. How urgent a feature is that to implement?
+
+3. The set of possible strategies is hard-coded in StrategySelector's class variable _STRATEGIES.  This seems brittle. Is there a way to use some sort of registry, and then be able to pass in a list of units -- say, from a config file?
+
+4. I'm not sure about the claim in the docString for StrategySelector that milestone-based chunking is the (more) common case. This is going to require some research. Are all milestones candidates for chunking? What makes milestones a higher priority than div types/subtypes?
+
+5. I want to examine the claim that "encoding inconsistencies in the Perseus corpus mean that refsDecls cannot always be trusted." I know the encoding is inconsistent, but why does that make the refsDecls unreliable? Is there a reason why editors cannot revise the refsDecls to make them reliable? It seems to me the responsibility for accurate structuring (prerequisite for chunking) lies with the editor, not the compiler. The consequences for us would be significant: we wouldn't have to calculate a chunking strategy; we would simply use the refsDecls.
+
+#+begin_comment
+An aside about handling multiple chunking strategies: Would it make sense to compile all html pages, from whatever chunking strategy, into the same folder, with filenames keyed by strategy? (They already are, at least partly: files are named card_1.html, card_2.html, etc.) The previous/next links for a page are strategy dependent and generated at compile time: e.g., previous-card <-> next-card for card-milestone chunking; previous-chapter <-> next-chpater for chapter-division chunking; etc.
+#+end_comment
+
+** Making XSLT Customizable
+We've already designed our chunking stylesheets to be imported by more specialized stylesheets, but our chunking-strategy selection algorithm doesn't allow us to take advantage of that. There should, I think, be metadata somewhere (in a big table; in a sidecar xml file next to the TEI file) that allows editors to specify which XSLT stylesheet (or stylesheet family) should be used to process the text into HTML. Or plural stylesheets: each refsDecl gets a stylesheet assignment?
+
+In other words, I propose that responsibility for choosing how a TEI document is rendered into HTML should lie with the editors and not be something that's calculated. As I recall that's actually how P4 (at least the Perl-based P4) worked.
+
+* Walking back poor encoding decisions
+This section is opinionated, but I want to make some cases for the stakeholders (especially Greg) to consider.
+
+** The use of the Epidoc schema for documents that aren't epigraphic or papyrological
+I've been told that at some point, the developers decided to enforce the use of Epidoc simply because it was the sparest TEI schema they could find.  These developers seem to have been unaware that the TEI schema is /meant/ to be customized, and that they could have created their own TEI customization more closely tailored to the Perseus corpus.
+
+** Failure to use xml:base to specify CTS urns.
+In the current editions, the base CTS urn is specified in an @n attribute on the top-most div in the <body>:
+
+#+begin_src xml
+  <div xml:lang="lat" type="edition" n="urn:cts:latinLit:phi2331.phi013.perseus-lat2">
+#+end_src
+
+Perseus tends to use the @n attribute for anything and everything, but in this case that urn should be specified with the @xml:base attribute:
+#+begin_src xml
+  <div xml:lang="lat" type="edition" xml:base="urn:cts:latinLit:phi2331.phi013.perseus-lat2">
+#+end_src
+
+That type="edition" encoding is also a poor choice: that kind of metadata belongs somewhere in the TEIHeader.
+
+The fact is -- here's the polemical part -- there was a generation of Perseus developers who had scant knowledge of the TEI and an active dislike of XML. As a result, they damaged the Perseus corpus by trying to shoe-horn it into Epidoc and making poor use of TEI features (like xml:base). I don't know how extensive the damage is, nor do I know how difficult it would be to repair it. But in some cases, at least -- fixing refsDecls, moving to Perseus-specific TEI customizations instead of Epidoc -- I think we would improve the work we're doing on Perseus 6 if we took some restorative actions.
+
+* Linguistic Annotation of TEI documents
+Charles has developed a method in kodon <https://github.com/PerseusDLCode/kodon-py> for adding morphological tagging to Perseus's TEI documents, but it involves using his own, idiosyncratic TEI XML parser to generate a JSON representation, operating on the JSON, and then somehow converting it back to XML.  I think developing a bespoke XML parser is a bad design choice; however, I do understand that available lemmatizers work on plain text, not XML.
+
+The TEI schema includes elements and attributes that support linguistic annotation of corpora (see https://tei-c.org/release/doc/tei-p5-doc/en/html/CC.html#CCAN and https://tei-c.org/release/doc/tei-p5-doc/en/html/AI.html#AILA). It may be that the TEI's elements are insufficient for Perseus's use, but I fear Charles and other developers have abandoned TEI XML prematurely because they dislike XML and prefer to work with JSON. I have the advantage and disadvantage of not being a classical philologist, and my training in computational linguistics is dated. I'd like to spend some time answering the naive-sounding question: "Why can't we just do this in TEI XML?"
+
+[[https://tei-c.org/release/doc/tei-p5-doc/en/html/AI.html#AILALW][Section 18.4.2]] in the Guidelines discusses the needs of corpus linguists and how the TEI may be used to address them. We need to study this carefully.
+
+** Research Task
+Find research papers that discuss practical uses of TEI linguistic markup. What projects have used it? What barriers or limitations did they encounter? If they chose not to use TEI markup to perform linguistic annotation, what did they use instead, and why?
+
+
+** Implementation Task
+This task should not be taken up until we have done our research and discussed options.
+
+Robust tokenization.  Surely this process has been addressed and implemented in the TEI community. Review prior work.
+
 * Sprints
 This section is for discussions about programming sprints.
+
+** Sprint 1
+Sprint 1 is nearly complete. It focuses on creating a minimum viable reader.
+
+** Sprint 2
+
+*** XSLT work
+
+**** implement display of line numbers in verse lines
+
+**** handle <note> elements properly
