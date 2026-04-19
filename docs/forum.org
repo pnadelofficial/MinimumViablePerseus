@@ -157,10 +157,212 @@ The TEI schema includes elements and attributes that support linguistic annotati
 Find research papers that discuss practical uses of TEI linguistic markup. What projects have used it? What barriers or limitations did they encounter? If they chose not to use TEI markup to perform linguistic annotation, what did they use instead, and why?
 
 
-** Implementation Task
-This task should not be taken up until we have done our research and discussed options.
+** Implementation Tasks
+*** Develop a tokenizer in XSLT 3
+Here's a prototype that generates a <tokens> document containing one
+<token> element per orthographic word, containing the surface form and
+an anchor pointing to its containing element:
 
-Robust tokenization.  Surely this process has been addressed and implemented in the TEI community. Review prior work.
+#+begin_src xml
+  <?xml version="1.0" encoding="UTF-8"?>
+  <xsl:stylesheet
+      xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+      xmlns:tei="http://www.tei-c.org/ns/1.0"
+      xmlns:xs="http://www.w3.org/2001/XMLSchema"
+      version="3.0"
+      exclude-result-prefixes="tei xs">
+
+    <!--
+      TEI Token Extractor — Stage 1 of the Perseus6 annotation pipeline.
+
+      Input:  A TEI-encoded text document (any structural convention).
+      Output: A <tokens> document: one <token> per orthographic word,
+              carrying the surface form and an anchor pointing to its
+              containing element.
+
+      Design decisions:
+      - No assumptions about div/@type or milestone structure.
+      - Apparatus elements are excluded: <note>, <del>, <rdg>,
+        <supplied>, <gap>, <unclear> (configurable via $exclude-elements).
+      - Punctuation is stripped from leading and trailing positions of
+        each whitespace-delimited token.  The raw form is preserved in
+        @raw for diagnostics.
+      - xml:id is used for element anchors when present; generate-id()
+        is used as a fallback for elements without @xml:id.  Stable
+        anchors require explicit @xml:id on citable elements in the source.
+
+      XPath 3.0 regex character class rules (relevant to this file):
+      Inside a character class [...]:
+        \]   escape the closing bracket
+        \\   escape a literal backslash
+        -    place at start or end of class to mean literal hyphen
+        ^    special only as the very first character (negation)
+        All other characters are literal, including Unicode.
+        Writing \X where X is not a regex metacharacter is an ERROR.
+
+      The punctuation class used here is written as a plain string
+      attribute value.  XML escaping (&lt; for <, &gt; for >, &quot;
+      for ") is resolved by the XML parser before the XPath engine sees
+      the string, so the regex receives the intended literal characters.
+      The apostrophe/single-quote is excluded from the class because
+      it would conflict with the XPath attribute delimiter; it is handled
+      by a separate replace() call using a double-quoted string.
+    -->
+
+    <xsl:output method="xml" indent="yes" encoding="UTF-8"/>
+
+    <!-- Elements whose text content should be suppressed entirely.
+         Add or remove names as corpus analysis dictates.             -->
+    <xsl:param name="exclude-elements" as="xs:string*"
+               select="('note', 'del', 'rdg', 'supplied', 'gap', 'unclear',
+                        'figDesc', 'label')"/>
+
+    <!--
+      strip-punct: remove leading and trailing punctuation from a token.
+
+      The function applies four replace() calls in sequence:
+        1. Strip leading chars from the main punctuation class
+        2. Strip trailing chars from the main punctuation class
+        3. Strip leading apostrophes/single-quotes (separate string)
+        4. Strip trailing apostrophes/single-quotes (separate string)
+
+      Main punctuation class characters:
+        .,;:!?    — common ASCII punctuation
+        ·         — middle dot / Greek interpunct (U+00B7)
+        —–        — em-dash (U+2014), en-dash (U+2013)
+        (){}      — parentheses and braces
+        \[\]      — square brackets (\] escapes the closing bracket)
+        &lt;&gt;  — less-than / greater-than (XML-escaped in source)
+        ⟨⟩        — mathematical angle brackets (U+27E8/27E9),
+                    used in papyrological / epigraphic EpiDoc texts
+        &quot;    — double quotation mark (XML-escaped in source)
+
+      Apostrophe (U+0027) is handled in steps 3–4 using a separate
+      double-quoted attribute value, avoiding the XML quoting conflict.
+      Note: in Greek, the apostrophe indicates elision and typically
+      appears at the END of a token (e.g. δ'), so trailing stripping is
+      the important case.
+    -->
+    <xsl:function name="tei:strip-punct" as="xs:string">
+      <xsl:param name="s" as="xs:string"/>
+      <!-- Steps 1–2: main punctuation class (single-quoted attribute) -->
+      <xsl:variable name="s1"
+        select="replace($s,
+                  '^[.,;:!?·—–(){}\[\]&lt;&gt;⟨⟩&quot;]+', '')"/>
+      <xsl:variable name="s2"
+        select="replace($s1,
+                  '[.,;:!?·—–(){}\[\]&lt;&gt;⟨⟩&quot;]+$', '')"/>
+      <!-- Steps 3–4: apostrophe / single-quote (double-quoted attribute) -->
+      <xsl:variable name="s3" select="replace($s2, &quot;^'+&quot;, '')"/>
+      <xsl:variable name="s4" select="replace($s3, &quot;'+$&quot;,  '')"/>
+      <xsl:sequence select="$s4"/>
+    </xsl:function>
+
+    <!-- ============================================================ -->
+    <!-- Root: emit a <tokens> wrapper with document metadata.        -->
+    <!-- ============================================================ -->
+
+    <xsl:template match="/">
+      <xsl:variable name="urn"
+                    select="(//@n[starts-with(., 'urn:cts')])[1]"/>
+      <xsl:variable name="lang"
+                    select="(//@xml:lang)[1]"/>
+      <tokens>
+        <xsl:if test="$urn">
+          <xsl:attribute name="urn" select="$urn"/>
+        </xsl:if>
+        <xsl:if test="$lang">
+          <xsl:attribute name="xml:lang" select="$lang"/>
+        </xsl:if>
+        <xsl:apply-templates select="//tei:body"/>
+      </tokens>
+    </xsl:template>
+
+    <!-- ============================================================ -->
+    <!-- Suppress excluded elements and their descendants entirely.   -->
+    <!-- ============================================================ -->
+
+    <xsl:template match="tei:*[local-name() = $exclude-elements]"
+                  priority="10"/>
+
+    <!-- ============================================================ -->
+    <!-- For every other element, recurse into children.              -->
+    <!-- ============================================================ -->
+
+    <xsl:template match="tei:*">
+      <xsl:apply-templates/>
+    </xsl:template>
+
+    <!-- ============================================================ -->
+    <!-- Text nodes: tokenize and emit <token> elements.              -->
+    <!-- ============================================================ -->
+
+    <xsl:template match="text()">
+      <xsl:variable name="anchor"      select="parent::tei:*"/>
+      <xsl:variable name="anchor-id"
+                    select="if ($anchor/@xml:id)
+                            then string($anchor/@xml:id)
+                            else generate-id($anchor)"/>
+      <xsl:variable name="anchor-name" select="local-name($anchor)"/>
+
+      <!-- Split on whitespace; discard empty strings. -->
+      <xsl:variable name="raw-tokens" as="xs:string*"
+                    select="tokenize(normalize-space(.), '\s+')
+                            [normalize-space(.) != '']"/>
+
+      <xsl:for-each select="$raw-tokens">
+        <xsl:variable name="raw"     select="."/>
+        <xsl:variable name="surface" select="tei:strip-punct($raw)"/>
+        <xsl:if test="normalize-space($surface) != ''">
+          <token>
+            <xsl:attribute name="surface"  select="$surface"/>
+            <xsl:attribute name="raw"      select="$raw"/>
+            <xsl:attribute name="anchor"   select="$anchor-id"/>
+            <xsl:attribute name="in"       select="$anchor-name"/>
+            <xsl:attribute name="position" select="position()"/>
+          </token>
+        </xsl:if>
+      </xsl:for-each>
+    </xsl:template>
+
+  </xsl:stylesheet>
+#+end_src
+
+This prototype has a problem: the anchor it generates is derived from
+ther @xml:id on the parent element: if there is no @xml:id, it falls
+back on the generate-id() function, but generate-id() issues an id
+that is simply unique during the run of the stylesheet.  This code,
+then, requires a pre-processing step that adds proper xml:ids to all citable elements
+in the document.
+
+**** TODO write a preparation stylesheet in XSLT that adds xml:ids to a source document
+:PROPERTIES:
+:ASSIGNEES: Claude Code
+:CUSTOM_ID: write-preparation-stylesheet
+:END:
+
+Use the <refsDecl>s in the <encodingDesc> to discover elements that need xml:ids.
+For each citable element that lacks @xml:id, generate a stable
+identifier derived from its CTS citation coordinates — something like
+l-1-1 for line 1.1, or p-2-3 for paragrah 2.3. The ingredients for
+constructing that id are already in the document: the @n attributes on
+the enclosing div and milestone elements, and the @n on the element
+itself. The stylesheet walks the ancestor axis to assemble the
+citation and mints an id from it.
+
+Look at [[file:~/mvp/wiki/Consolidated-Milestone-Report.md][the milestone report]] listing the div types and milestones
+currently being used in the Perseus corpus.
+
+**** TODO write a tokenizer in XSLT
+:PROPERTIES:
+:ASSIGNEES: Claude Code
+:CUSTOM_ID: write-tokenizer
+:END:
+
+Modify the prototype above to work on documents derived from the
+preparation run and generate a <tokens> document.
+
+
 
 * Sprints
 This section is for discussions about programming sprints.
