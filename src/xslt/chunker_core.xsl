@@ -27,6 +27,7 @@
        Shared page CSS (used by generate_chunks.xsl and generate_div_chunks.xsl)
        ============================================================ -->
 
+
   <xsl:variable name="page-css" as="xs:string">
 :root {
   --color-bg-primary:     #ffffff;
@@ -338,6 +339,7 @@ blockquote { margin: 1em 2em; font-style: italic; }
             <xsl:attribute name="id" select="concat('l', @n)"/>
           </xsl:if>
         </xsl:if>
+<<<<<<< HEAD
         <span class="line-n">
           <xsl:if test="@n castable as xs:integer and xs:integer(@n) mod 5 = 0">
             <xsl:value-of select="@n"/>
@@ -347,6 +349,13 @@ blockquote { margin: 1em 2em; font-style: italic; }
           <xsl:apply-templates mode="chunk"/>
         </span>
       </div>
+=======
+        <xsl:if test="@n castable as xs:integer and xs:integer(@n) mod 5 = 0">
+          <span class="line-n"><xsl:value-of select="@n"/></span>
+        </xsl:if>
+        <xsl:apply-templates mode="chunk"/>
+      </p>
+>>>>>>> 3634116e (Adds some styling for demonstration.)
     </xsl:if>
   </xsl:template>
 
