@@ -335,10 +335,14 @@ that is simply unique during the run of the stylesheet.  This code,
 then, requires a pre-processing step that adds proper xml:ids to all citable elements
 in the document.
 
-**** TODO write a preparation stylesheet in XSLT that adds xml:ids to a source document
+**** DONE write a preparation stylesheet in XSLT that adds xml:ids to a source document
+CLOSED: [2026-04-20 Sun 00:00]
 :PROPERTIES:
 :ASSIGNEES: Claude Code
 :CUSTOM_ID: write-preparation-stylesheet
+:END:
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2026-04-20 Sun 00:00]
 :END:
 
 Use the <refsDecl>s in the <encodingDesc> to discover elements that need xml:ids.
@@ -353,14 +357,102 @@ citation and mints an id from it.
 Look at [[file:~/mvp/wiki/Consolidated-Milestone-Report.md][the milestone report]] listing the div types and milestones
 currently being used in the Perseus corpus.
 
-**** TODO write a tokenizer in XSLT
+***** Implementation
+[2026-04-20] Implemented as =src/xslt/add_xml_ids.xsl=.
+
+The stylesheet is a standard identity transform with additional high-priority
+templates that intercept citable elements and inject =@xml:id= before passing
+through all other attributes and content unchanged.
+
+*Algorithm:*
+
+1. Collect citable unit names from =//tei:refsDecl[@n='CTS']/tei:cRefPattern/@n=,
+   normalized to lowercase (some corpora declare ~"Chapter"/"Book"~ with capital
+   initials while the corresponding =@subtype= values in the body are lowercase).
+
+2. Match three element types that lack =@xml:id=:
+   - =tei:l[@n]= — verse lines, when ~"line"~ is a declared CTS unit
+   - =tei:div[@n][not(starts-with(@n,'urn:'))]= — all structural divs with =@n=
+     except the top-level edition div (whose =@n= holds the CTS URN). This is
+     intentionally broader than the CTS unit list: introductions, prologues, and
+     other non-CTS-cited sections must also provide stable anchors.
+   - =tei:milestone[@n][lower-case(@unit) = $units]= — milestones that are
+     genuine CTS citation units (not page-break or pagination milestones).
+
+3. ID generation function =local:make-id(el)=:
+   #+begin_example
+   prefix    = lower-case(@subtype) | lower-case(@unit) | local-name(.)
+   ancestors = ancestor::tei:div[not(starts-with(@n,'urn:'))]/@n  (doc order)
+   id        = string-join((prefix, ancestors, @n), '-')
+               → sanitize: replace [^A-Za-z0-9_-] with '_'
+   #+end_example
+   Example: =tei:l[@n="5"]= inside =div[@subtype="poem"][@n="1"]= → =xml:id="l-1-5"=.
+
+*Corpus test results* (run [2026-04-20]):
+- =canonical-greekLit=: 1,612 files, 0 failures
+- =canonical-latinLit=: 687 files, 45 failures — all due to source-XML defects
+  (42 files reference a legacy Perseus DTD via network URL; 1 uses an undefined
+  HTML entity; 2 have extra content after the root element). No pipeline bugs.
+
+CLI driver: =src/tools/run_add_xml_ids.py SOURCE [SOURCE ...] OUTPUT_DIR=
+
+**** DONE write a tokenizer in XSLT
+CLOSED: [2026-04-20 Sun 00:00]
 :PROPERTIES:
 :ASSIGNEES: Claude Code
 :CUSTOM_ID: write-tokenizer
 :END:
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2026-04-20 Sun 00:00]
+:END:
 
 Modify the prototype above to work on documents derived from the
 preparation run and generate a <tokens> document.
+
+***** Implementation
+[2026-04-20] Implemented as =src/xslt/tokenize.xsl=.
+
+The tokenizer is a lightly adapted version of the prototype. Key differences
+from the prototype:
+
+1. *Anchor resolution* — the =text()= template walks =ancestor::tei:*[@xml:id]=
+   (reverse document order, innermost first) rather than using =parent::tei:*=
+   directly. This is necessary because text typically lives inside =tei:p=,
+   =tei:l=, or other intermediate elements, whose nearest citable ancestor may
+   be a =div= or =milestone= several levels up. The =generate-id()= fallback
+   from the prototype is removed; an =xsl:message= warning fires instead if no
+   citable ancestor is found.
+
+2. *Extended exclude list* — =tei:speaker= and =tei:stage= are added to the
+   default =$exclude-elements= parameter. Speaker labels in dramatic texts are
+   structural metadata, not linguistic content; stage directions are similarly
+   outside the citable text stream.
+
+3. *=strip-punct= function* — identical to the prototype; renamed from
+   =tei:strip-punct= to =local:strip-punct= to match the project's namespace
+   conventions.
+
+Output format (unchanged from prototype):
+#+begin_src xml
+<tokens urn="urn:cts:…" xml:lang="grc">
+  <token surface="ἄνδρα" raw="ἄνδρα," anchor="l-1" in="l" position="1"/>
+  …
+</tokens>
+#+end_src
+
+*Corpus test results* (run [2026-04-20]):
+- =canonical-greekLit=: 1,612 files → 24,031,688 tokens, 0 empty anchors,
+  0 failures; elapsed 293 s.
+- =canonical-latinLit=: 642 files processed → 13,128,867 tokens, 0 empty
+  anchors; 45 source-XML failures (see preparation stylesheet note above).
+
+Per-file summaries: =docs/greek-annotation-summary.tsv=,
+=docs/latin-annotation-summary.tsv=.
+
+CLI drivers:
+- =src/tools/run_tokenize.py SOURCE [SOURCE ...] OUTPUT_DIR=
+- =src/tools/run_annotation_pipeline.py SOURCE PREP_DIR TOKEN_DIR [SUMMARY]=
+  (runs both stages in sequence with per-file error and token counts)
 
 
 
@@ -371,6 +463,8 @@ This section is for discussions about programming sprints.
 Sprint 1 is nearly complete. It focuses on creating a minimum viable reader.
 
 ** Sprint 2
+
+
 
 *** XSLT work
 
