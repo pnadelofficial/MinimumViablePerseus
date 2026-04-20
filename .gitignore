@@ -216,7 +216,7 @@ __marimo__/
 
 # Claude
 .claude/settings.local.json
-
+docs/forum.org
 
 # Regeneratable output files
 html/
