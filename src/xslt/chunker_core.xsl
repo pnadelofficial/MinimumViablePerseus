@@ -37,9 +37,13 @@
 h1           { font-size: 1em; color: #555; margin-bottom: .25em }
 .speech      { margin: 1em 0 }
 .speaker     { font-weight: bold; display: block; margin-bottom: .25em }
-.line        { margin: .1em 0; padding-left: 2em }
+.line        { position: relative; margin: .1em 0; padding-left: 3em }
+.line-n      { position: absolute; left: 0; width: 2.5em; text-align: right;
+               color: #aaa; font-size: .85em; user-select: none }
 .gap         { color: #888; font-style: italic }
-.note        { border-bottom: 1px dotted #888 }
+.note        { float: right; clear: right; width: 35%; margin: 0 0 .5em 1.5em;
+               padding: .35em .6em; font-size: .82em; line-height: 1.4;
+               color: #555; background: #f8f8f8; border-left: 3px solid #ccc }
 .toc         { padding-left: 1.5em; line-height: 1.8 }
 .site-footer { border-top: 1px solid #eee; margin-top: 2em; padding-top: .5em;
                font-size: .8em; color: #888; text-align: center }
@@ -189,6 +193,9 @@ a.word:hover { border-bottom-style: solid }</xsl:variable>
           <xsl:if test="not(preceding::tei:l[@n = current()/@n])">
             <xsl:attribute name="id" select="concat('l', @n)"/>
           </xsl:if>
+        </xsl:if>
+        <xsl:if test="@n castable as xs:integer and xs:integer(@n) mod 5 = 0">
+          <span class="line-n"><xsl:value-of select="@n"/></span>
         </xsl:if>
         <xsl:apply-templates mode="chunk"/>
       </p>
