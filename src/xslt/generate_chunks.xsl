@@ -255,7 +255,6 @@
             <style><xsl:value-of select="$page-css"/></style>
           </head>
           <body>
-
             <div class="perseus-shell">
               <header class="site-header">
                 <div class="header-logo">Perseus <span>Digital Library</span></div>

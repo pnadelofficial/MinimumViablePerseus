@@ -359,7 +359,6 @@
                 </div>
               </footer>
             </div>
-
           </body>
         </html>
       </xsl:result-document>
