@@ -47,6 +47,7 @@
   <xsl:template match="/">
     <xsl:variable name="base-urn"   select="local:extract-base-urn(.)"/>
     <xsl:variable name="work-title" select="string((//tei:titleStmt/tei:title)[1])"/>
+    <xsl:variable name="author"     select="string((//tei:titleStmt/tei:author)[1])"/>
     <xsl:variable name="doc-lang"   select="string((//tei:text/@xml:lang)[1])"/>
     <xsl:variable name="home-url"
       select="replace($catalog-url, 'catalog/[^/]+\.html$', 'index.html')"/>
@@ -72,6 +73,18 @@
         Check the chunk-unit parameter.
       </xsl:message>
     </xsl:if>
+
+    <!-- Pre-collect lightweight chunk metadata so every result-document
+         can render a complete sidebar TOC without a second traversal. -->
+    <xsl:variable name="all-chunks" as="map(*)*">
+      <xsl:for-each select="$chunks">
+        <xsl:sequence select="map {
+          'n'   : string(@n),
+          'pos' : position(),
+          'file': concat($chunk-unit, '_', position(), '.html')
+        }"/>
+      </xsl:for-each>
+    </xsl:variable>
 
     <xsl:iterate select="$chunks">
       <xsl:param name="index-entries" as="map(*)*" select="()"/>
@@ -101,29 +114,76 @@
             <head>
               <meta charset="utf-8"/>
               <meta name="viewport" content="width=device-width, initial-scale=1"/>
-              <title><xsl:value-of select="$work-title"/> — Contents | Perseus</title>
+              <title><xsl:value-of select="$work-title"/> &#x2014; Contents | Perseus</title>
               <style><xsl:value-of select="$page-css"/></style>
             </head>
             <body>
-              <header class="site-header">
-                <a href="{$home-url}">Perseus Digital Library</a>
-              </header>
-              <nav class="chunk-nav">
-                <span><a href="{$catalog-url}">&#x2190; Catalog</a></span>
-              </nav>
-              <main>
-                <h1><xsl:value-of select="$work-title"/></h1>
-                <ol class="toc">
-                  <xsl:for-each select="$index-entries">
-                    <li>
-                      <a href="{.('file')}">
-                        <xsl:value-of select=".('n')"/>
-                      </a>
-                    </li>
-                  </xsl:for-each>
-                </ol>
-              </main>
-              <footer class="site-footer">Perseus Digital Library</footer>
+              <div class="perseus-shell">
+                <header class="site-header">
+                  <div class="header-logo">Perseus <span>Digital Library</span></div>
+                  <nav class="header-nav">
+                    <a href="{$catalog-url}">&#x2190; Catalog</a>
+                    <a href="{$home-url}">Home</a>
+                  </nav>
+                </header>
+                <div class="main-area">
+                  <aside class="sidebar">
+                    <details open="open">
+                      <summary>Work info</summary>
+                      <div class="panel-body">
+                        <div class="meta-row">
+                          <span class="meta-label">Work</span>
+                          <span class="meta-value"><xsl:value-of select="$work-title"/></span>
+                        </div>
+                        <xsl:if test="$author != ''">
+                          <div class="meta-row">
+                            <span class="meta-label">Author</span>
+                            <span class="meta-value"><xsl:value-of select="$author"/></span>
+                          </div>
+                        </xsl:if>
+                        <xsl:if test="$doc-lang != ''">
+                          <div class="meta-row">
+                            <span class="meta-label">Language</span>
+                            <span class="meta-value"><xsl:value-of select="$doc-lang"/></span>
+                          </div>
+                        </xsl:if>
+                      </div>
+                    </details>
+                  </aside>
+                  <main class="center-col">
+                    <div class="passage-header">
+                      <div class="passage-breadcrumb">
+                        <xsl:if test="$author != ''">
+                          <xsl:value-of select="$author"/>
+                          <xsl:text> &#xB7; </xsl:text>
+                        </xsl:if>
+                        <strong><xsl:value-of select="$work-title"/></strong>
+                        <xsl:text> &#xB7; Contents</xsl:text>
+                      </div>
+                    </div>
+                    <div class="text-body">
+                      <ol class="toc-list">
+                        <xsl:for-each select="$index-entries">
+                          <li>
+                            <a href="{.('file')}">
+                              <span class="toc-dot"/>
+                              <xsl:value-of select="concat($chunk-unit, ' ', .('n'))"/>
+                            </a>
+                          </li>
+                        </xsl:for-each>
+                      </ol>
+                    </div>
+                  </main>
+                  <aside class="sidebar right"/>
+                </div>
+                <footer class="site-footer">
+                  <div class="footer-text">Perseus Digital Library &#xB7; Tufts University</div>
+                  <div class="footer-links">
+                    <a href="{$catalog-url}">&#x2190; Catalog</a>
+                    <a href="{$home-url}">Home</a>
+                  </div>
+                </footer>
+              </div>
             </body>
           </html>
         </xsl:result-document>
@@ -141,9 +201,6 @@
       <xsl:variable name="next-file"
         select="if (exists($pos-next)) then concat($chunk-unit, '_', $pos-next, '.html') else ()"/>
 
-      <xsl:variable name="chunk-label"
-        select="concat($work-title, ' — ', $chunk-unit, ' ', @n)"/>
-
       <!-- ── Write the chunk HTML file ── -->
       <xsl:result-document
         href        ="{$output-dir}/{$file-name}"
@@ -157,37 +214,152 @@
           <head>
             <meta charset="utf-8"/>
             <meta name="viewport" content="width=device-width, initial-scale=1"/>
-            <title><xsl:value-of select="$chunk-label"/> | Perseus</title>
+            <title>
+              <xsl:value-of select="$work-title"/>
+              <xsl:text> &#x2014; </xsl:text>
+              <xsl:value-of select="$chunk-unit"/>
+              <xsl:text> </xsl:text>
+              <xsl:value-of select="@n"/>
+              <xsl:text> | Perseus</xsl:text>
+            </title>
             <style><xsl:value-of select="$page-css"/></style>
           </head>
           <body>
-            <header class="site-header">
-              <a href="{$home-url}">Perseus Digital Library</a>
-            </header>
-            <nav class="chunk-nav">
-              <span>
-                <a href="{$catalog-url}">&#x2190; Catalog</a>
-                <xsl:text> · </xsl:text>
-                <a href="toc.html">Contents</a>
-              </span>
-              <span>
-                <xsl:if test="exists($prev-file)">
-                  <a href="{$prev-file}">&#x2190; prev</a>
-                </xsl:if>
-                <xsl:if test="exists($next-file)">
-                  <a href="{$next-file}">next &#x2192;</a>
-                </xsl:if>
-              </span>
-            </nav>
-            <main>
-              <h1><xsl:value-of select="$chunk-label"/></h1>
-              <!-- Render the full div content; no start/stop filtering needed -->
-              <xsl:apply-templates select="$div/node()" mode="chunk">
-                <xsl:with-param name="base-urn"  select="$base-urn"  tunnel="yes"/>
-                <xsl:with-param name="morph-url" select="$morph-url" tunnel="yes"/>
-              </xsl:apply-templates>
-            </main>
-            <footer class="site-footer">Perseus Digital Library</footer>
+            <div class="perseus-shell">
+              <header class="site-header">
+                <div class="header-logo">Perseus <span>Digital Library</span></div>
+                <nav class="header-nav">
+                  <a href="{$catalog-url}">&#x2190; Catalog</a>
+                  <a href="{$home-url}">Home</a>
+                </nav>
+              </header>
+              <div class="main-area">
+
+                <!-- ── Left sidebar ── -->
+                <aside class="sidebar">
+                  <details open="open">
+                    <summary>Contents</summary>
+                    <div class="panel-body">
+                      <ol class="toc-list">
+                        <xsl:for-each select="$all-chunks">
+                          <li>
+                            <xsl:if test=".('pos') = $pos">
+                              <xsl:attribute name="class">current</xsl:attribute>
+                            </xsl:if>
+                            <a href="{.('file')}">
+                              <span class="toc-dot"/>
+                              <xsl:value-of select="concat($chunk-unit, ' ', .('n'))"/>
+                            </a>
+                          </li>
+                        </xsl:for-each>
+                      </ol>
+                    </div>
+                  </details>
+                  <details>
+                    <summary>Work info</summary>
+                    <div class="panel-body">
+                      <div class="meta-row">
+                        <span class="meta-label">Work</span>
+                        <span class="meta-value"><xsl:value-of select="$work-title"/></span>
+                      </div>
+                      <xsl:if test="$author != ''">
+                        <div class="meta-row">
+                          <span class="meta-label">Author</span>
+                          <span class="meta-value"><xsl:value-of select="$author"/></span>
+                        </div>
+                      </xsl:if>
+                      <xsl:if test="$doc-lang != ''">
+                        <div class="meta-row">
+                          <span class="meta-label">Language</span>
+                          <span class="meta-value"><xsl:value-of select="$doc-lang"/></span>
+                        </div>
+                      </xsl:if>
+                      <xsl:if test="exists($base-urn)">
+                        <div class="meta-row">
+                          <span class="meta-label">URN</span>
+                          <span class="meta-value"><xsl:value-of select="$base-urn"/></span>
+                        </div>
+                      </xsl:if>
+                    </div>
+                  </details>
+                  <details>
+                    <summary>Other versions</summary>
+                    <div class="panel-body">
+                      <p class="placeholder-msg">Other editions available via the CTS resolver.</p>
+                    </div>
+                  </details>
+                </aside>
+
+                <!-- ── Center column ── -->
+                <main class="center-col">
+                  <div class="passage-header">
+                    <div class="passage-breadcrumb">
+                      <xsl:if test="$author != ''">
+                        <xsl:value-of select="$author"/>
+                        <xsl:text> &#xB7; </xsl:text>
+                      </xsl:if>
+                      <strong><xsl:value-of select="$work-title"/></strong>
+                      <xsl:text> &#xB7; </xsl:text>
+                      <xsl:value-of select="concat($chunk-unit, ' ', @n)"/>
+                    </div>
+                    <div class="passage-nav">
+                      <xsl:if test="exists($prev-file)">
+                        <a href="{$prev-file}" class="nav-btn">&#x2190; prev</a>
+                      </xsl:if>
+                      <xsl:if test="exists($next-file)">
+                        <a href="{$next-file}" class="nav-btn">next &#x2192;</a>
+                      </xsl:if>
+                    </div>
+                  </div>
+
+                  <!-- CSS-only line-number toggle; must precede .text-body -->
+                  <input type="checkbox" class="toggle-input" id="toggle-linenum" checked="checked"/>
+                  <div class="text-body">
+                    <!-- Render the full div content; no start/stop filtering needed -->
+                    <xsl:apply-templates select="$div/node()" mode="chunk">
+                      <xsl:with-param name="base-urn" select="$base-urn" tunnel="yes"/>
+                    </xsl:apply-templates>
+                  </div>
+                  <div class="passage-footer">
+                    <div class="display-opts">
+                      <span class="opt-label">Show:</span>
+                      <label class="opt-toggle" for="toggle-linenum">line numbers</label>
+                    </div>
+                  </div>
+                </main>
+
+                <!-- ── Right sidebar ── -->
+                <aside class="sidebar right">
+                  <details open="open">
+                    <summary>Vocabulary</summary>
+                    <div class="panel-body">
+                      <p class="placeholder-msg">Vocabulary lookup coming in a future release.</p>
+                    </div>
+                  </details>
+                  <details>
+                    <summary>Commentary</summary>
+                    <div class="panel-body">
+                      <p class="placeholder-msg">Commentary coming in a future release.</p>
+                    </div>
+                  </details>
+                  <details>
+                    <summary>Word study</summary>
+                    <div class="panel-body">
+                      <p class="placeholder-msg">Morphological analysis coming in a future release.</p>
+                    </div>
+                  </details>
+                </aside>
+
+              </div>
+              <footer class="site-footer">
+                <div class="footer-text">Perseus Digital Library &#xB7; Tufts University</div>
+                <div class="footer-links">
+                  <a href="{$catalog-url}">&#x2190; Catalog</a>
+                  <a href="toc.html">Contents</a>
+                </div>
+              </footer>
+            </div>
+
           </body>
         </html>
       </xsl:result-document>
