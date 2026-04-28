@@ -6,7 +6,13 @@
 	url = https://github.com/PerseusDL/canonical-greekLit.git
 [submodule "wiki"]
 	path = wiki
-	url = git@github.com:PerseusDLCode/Perseus6.wiki.git
+	url = git@github.com:PerseusDLCode/MinimumViablePerseus.wiki.git
 [submodule "data/canonical-engLit"]
 	path = data/canonical-engLit
 	url = https://github.com/PerseusDL/canonical-engLit
+[submodule "data/First1KGreek"]
+	path = data/First1KGreek
+	url = https://github.com/OpenGreekAndLatin/First1KGreek
+[submodule "data/csel"]
+	path = data/csel
+	url = https://github.com/OpenGreekAndLatin/csel-dev
