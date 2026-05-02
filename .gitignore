@@ -220,3 +220,6 @@ docs/forum.org
 
 # Regeneratable output files
 html/
+
+# local foul papers
+local/
