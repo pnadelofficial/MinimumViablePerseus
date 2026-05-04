@@ -222,7 +222,7 @@ docs/forum.org
 src/morph-server/*.morph.xml
 
 # Regeneratable output files
-html/
+html_pages/
 
 # notebooks
 notebooks/
