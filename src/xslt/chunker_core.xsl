@@ -42,7 +42,9 @@ h1           { font-size: 1em; color: #555; margin-bottom: .25em }
 .note        { border-bottom: 1px dotted #888 }
 .toc         { padding-left: 1.5em; line-height: 1.8 }
 .site-footer { border-top: 1px solid #eee; margin-top: 2em; padding-top: .5em;
-               font-size: .8em; color: #888; text-align: center }</xsl:variable>
+               font-size: .8em; color: #888; text-align: center }
+a.word       { color: inherit; text-decoration: none; border-bottom: 1px dotted #aaa }
+a.word:hover { border-bottom-style: solid }</xsl:variable>
 
   <!-- ============================================================
        Helper functions
@@ -123,6 +125,25 @@ h1           { font-size: 1em; color: #555; margin-bottom: .25em }
     </xsl:if>
   </xsl:function>
 
+
+  <!--
+    local:strip-punct($s) → xs:string
+    Remove leading and trailing punctuation from a token so the bare
+    surface form can be submitted to the morphological server.
+    Mirrors the same function in tokenize.xsl.
+  -->
+  <xsl:function name="local:strip-punct" as="xs:string">
+    <xsl:param name="s" as="xs:string"/>
+    <xsl:variable name="s1"
+      select="replace($s,
+                '^[.,;:!?·—–(){}\[\]&lt;&gt;⟨⟩&quot;]+', '')"/>
+    <xsl:variable name="s2"
+      select="replace($s1,
+                '[.,;:!?·—–(){}\[\]&lt;&gt;⟨⟩&quot;]+$', '')"/>
+    <xsl:variable name="s3" select="replace($s2, &quot;^'+&quot;, '')"/>
+    <xsl:variable name="s4" select="replace($s3, &quot;'+$&quot;,  '')"/>
+    <xsl:sequence select="$s4"/>
+  </xsl:function>
 
   <!-- ============================================================
        Element templates — chunk mode
@@ -342,12 +363,58 @@ h1           { font-size: 1em; color: #555; margin-bottom: .25em }
     </xsl:if>
   </xsl:template>
 
-  <!-- Text nodes: copy only when within the start/stop range. -->
+  <!--
+    Text nodes: copy only when within the start/stop range.
+    When $morph-url is set, each whitespace-delimited token is wrapped in
+    an <a class="word"> linking to the morphological server.  The bare
+    surface form (punctuation stripped) is used as the lookup key; the
+    original raw token (with punctuation) is the visible link text.
+    Whitespace-only text nodes pass through unchanged in both modes.
+  -->
   <xsl:template match="text()" mode="chunk">
-    <xsl:param name="start" tunnel="yes" as="node()?"/>
-    <xsl:param name="stop"  tunnel="yes" as="node()?"/>
+    <xsl:param name="start"     tunnel="yes" as="node()?"/>
+    <xsl:param name="stop"      tunnel="yes" as="node()?"/>
+    <xsl:param name="morph-url" tunnel="yes" as="xs:string" select="''"/>
     <xsl:if test="local:after-start(., $start) and local:before-stop(., $stop)">
-      <xsl:copy/>
+      <xsl:choose>
+        <xsl:when test="$morph-url != ''">
+          <xsl:variable name="tei-lang"
+            select="(ancestor::*[@xml:lang])[1]/@xml:lang"/>
+          <xsl:variable name="morph-lang" select="
+            if      ($tei-lang = 'lat') then 'la'
+            else if ($tei-lang = 'grc') then 'grc'
+            else ''
+          "/>
+          <xsl:variable name="normalized" select="normalize-space(.)"/>
+          <xsl:if test="$normalized != ''">
+            <xsl:if test="matches(., '^\s')">
+              <xsl:text> </xsl:text>
+            </xsl:if>
+            <xsl:for-each select="tokenize($normalized, '\s+')">
+              <xsl:variable name="raw"     select="."/>
+              <xsl:variable name="surface" select="local:strip-punct($raw)"/>
+              <xsl:choose>
+                <xsl:when test="$morph-lang != '' and $surface != ''">
+                  <a href="{$morph-url}/morph?form={encode-for-uri($surface)}&amp;lang={$morph-lang}"
+                     class="word"><xsl:value-of select="$raw"/></a>
+                </xsl:when>
+                <xsl:otherwise>
+                  <xsl:value-of select="$raw"/>
+                </xsl:otherwise>
+              </xsl:choose>
+              <xsl:if test="position() != last()">
+                <xsl:text> </xsl:text>
+              </xsl:if>
+            </xsl:for-each>
+            <xsl:if test="matches(., '\s$')">
+              <xsl:text> </xsl:text>
+            </xsl:if>
+          </xsl:if>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:copy/>
+        </xsl:otherwise>
+      </xsl:choose>
     </xsl:if>
   </xsl:template>
 

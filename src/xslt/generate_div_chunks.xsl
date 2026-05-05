@@ -35,6 +35,9 @@
   <xsl:param name="chunk-unit"  as="xs:string" select="'chapter'"/>
   <xsl:param name="output-dir"  as="xs:string" select="'.'"/>
   <xsl:param name="catalog-url" as="xs:string" select="'/index.html'"/>
+  <!-- When non-empty, each word in the output is linked to the morphological
+       server at this base URL (e.g. http://localhost:5000). -->
+  <xsl:param name="morph-url"   as="xs:string" select="''"/>
 
 
   <!-- ============================================================
@@ -180,7 +183,8 @@
               <h1><xsl:value-of select="$chunk-label"/></h1>
               <!-- Render the full div content; no start/stop filtering needed -->
               <xsl:apply-templates select="$div/node()" mode="chunk">
-                <xsl:with-param name="base-urn" select="$base-urn" tunnel="yes"/>
+                <xsl:with-param name="base-urn"  select="$base-urn"  tunnel="yes"/>
+                <xsl:with-param name="morph-url" select="$morph-url" tunnel="yes"/>
               </xsl:apply-templates>
             </main>
             <footer class="site-footer">Perseus Digital Library</footer>
